@@ -188,7 +188,7 @@ if (!file.exists("RData/LO_sex_tail_SCL_v2.rds")){
                  params = MCMC.params,
                  jm.out = jm)
   
-  saveRDS(jm.out, file = "RData/LO_sex_tail_v2.rds")
+  saveRDS(jm.out, file = "RData/LO_sex_tail_SCL_v2.rds")
 }
 
 ```
@@ -198,9 +198,14 @@ Compare results:
 ```{r}
 sex_only <- readRDS("RData/LO_sex_v2.rds")
 sex_tail <- readRDS("RData/LO_sex_tail_v2.rds")
-DICs <- c(sex_only$jm.out$DIC, sex_tail$jm.out$DIC)
+sex_tail_SCL  <- readRDS("RData/LO_sex_tail_SCL_v2.rds")
+DICs <- c(sex_only$jm.out$DIC, sex_tail$jm.out$DIC, sex_tail_SCL$DIC)
 DICs
 ```
+
+We should also use Pareto k statistic to see if the model fit right. 
+
+
 
 The second model is better.  Look at the results:
 
@@ -209,7 +214,8 @@ The second model is better.  Look at the results:
 dat.1$pMale <- sex_tail$jm.out$mean$Sex1
 dat.1$log_muH <- sex_tail$jm.out$q50$mu_H1
 
-write.csv(dat.1, file = "data/estimated_sex_Lo_ETP_v2.csv",
+write.csv(dat.1, 
+          file = "data/estimated_sex_LO_ETP_v2.csv",
           quote = FALSE, row.names = FALSE)
 ```
 
