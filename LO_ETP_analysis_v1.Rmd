@@ -1,0 +1,233 @@
+---
+title: "Analysis of olive ridleys in ETP"
+output: html_notebook
+---
+
+Analysis of hormone data for olive ridleys in ETP
+
+```{r}
+library(jagsUI)
+library(tidyverse)
+library(lubridate)
+library(readr)
+
+MCMC.params <- list(n.samples = 50000,
+                    n.burnin = 30000,
+                    n.thin = 5,
+                    n.chains = 5)
+
+```
+
+
+```{r}
+col_def <- cols(ID = col_integer(),
+                LabID = col_integer(),
+                Date_Collected = col_date(format = "%m/%d/%Y"),
+                SCL_SWFSC = col_double(),
+                CCL_SWFSC = col_double(),
+                Predicted.Sex = col_character(),
+                Mean.TotalTestosterone_pg_per_mL = col_double(),
+                Duplicate1_TotalTestosterone_pg_per_mL = col_double(),
+                Duplicate2_TotalTestosterone_pg_per_mL = col_double(),
+                CaptureID = col_integer(),
+                Month = col_integer(),
+                Day = col_integer(),
+                Year = col_integer(),
+                Time = col_time(format = "%H:%M"),
+                Haplotype = col_character(),
+                x = col_double(),
+                y = col_double(),
+                EEZ = col_character(),
+                sex = col_character(),
+                plastron_to_tip = col_double(),
+                plastron_to_cloaca = col_double(),
+                cloaca_to_tip = col_double(),
+                weight = col_double(),
+                body_depth = col_double(),
+                TP = col_double(),
+                dN = col_double(),
+                dC = col_double())
+
+dat.0 <- read_csv(file = "data/EPacLO_2021-01-05.csv",
+                  col_types = col_def)
+
+summary(dat.0)
+```
+
+Filter necessary info:
+
+```{r}
+dat.0 %>% select(Mean.TotalTestosterone_pg_per_mL, 
+                 Duplicate1_TotalTestosterone_pg_per_mL,
+                 Duplicate2_TotalTestosterone_pg_per_mL, 
+                 Date_Collected, sex,
+                 plastron_to_tip, SCL_SWFSC, LabID) %>%
+  transmute(ID = LabID, 
+            Mean.testo = Mean.TotalTestosterone_pg_per_mL,
+            Testo1 = Duplicate1_TotalTestosterone_pg_per_mL,
+            Testo2 = Duplicate2_TotalTestosterone_pg_per_mL,
+            Date = Date_Collected,
+            sex = sex,
+            tail_length = plastron_to_tip,
+            SCL = SCL_SWFSC,
+            log_Testo1_mean0 = log(Testo1) - mean(log(Testo1)),
+            log_Testo2_mean0 = log(Testo2) - mean(log(Testo2)),
+            sex01 = ifelse(sex == "F", 0,
+                           ifelse(sex == "M", 1, NA))) -> dat.1
+
+summary(dat.1)
+```
+
+
+hormone level is predicted by sex only.
+```{r}
+if (!file.exists("RData/LO_sex_v2.rds")){
+
+  jags.data <- list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    Sex1 = dat.1$sex01,
+                    N1 = nrow(dat.1))
+  
+  MCMC.params$parameters <- c("Sex1", "beta0", "beta_Sex", 
+                              "mu_H1", "sigma_H1", "deviance")
+  
+  MCMC.params$model.file = "models/Model_sex.txt"
+  
+  jm.sex <- jags(data = jags.data,
+                 #inits = inits,
+                 parameters.to.save= MCMC.params$parameters,
+                 model.file = MCMC.params$model.file,
+                 n.chains = MCMC.params$n.chains,
+                 n.burnin = MCMC.params$n.burnin,
+                 n.thin = MCMC.params$n.thin,
+                 n.iter = MCMC.params$n.samples,
+                 DIC = T, 
+                 parallel=T)
+  
+  jm.out <- list(data = jags.data,
+                 params = MCMC.params,
+                 jm.out = jm.sex)
+  
+  saveRDS(jm.out, file = "RData/LO_sex_v2.rds")
+  
+}
+
+```
+
+hormone level is predicted by sex and tail length.
+```{r}
+if (!file.exists("RData/LO_sex_tail_v2.rds")){
+  # use mean for missing tail length:
+  dat.1$tail_length[is.na(dat.1$tail_length)] <- mean(dat.1$tail_length, na.rm = T)
+  
+  jags.data <- list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    Sex1 = dat.1$sex01,
+                    N1 = nrow(dat.1),
+                    tail = dat.1$tail_length)
+  
+  MCMC.params$parameters <- c("Sex1", "beta0", "beta_Sex", 
+                              "beta_T",
+                              "mu_H1", "sigma_H1", "deviance")
+  
+  MCMC.params$model.file = "models/Model_sex_tail.txt"
+  
+  jm <- jags(data = jags.data,
+             #inits = inits,
+             parameters.to.save= MCMC.params$parameters,
+             model.file = MCMC.params$model.file,
+             n.chains = MCMC.params$n.chains,
+             n.burnin = MCMC.params$n.burnin,
+             n.thin = MCMC.params$n.thin,
+             n.iter = MCMC.params$n.samples,
+             DIC = T, 
+             parallel=T)
+  
+  jm.out <- list(data = jags.data,
+                 params = MCMC.params,
+                 jm.out = jm)
+  
+  saveRDS(jm.out, file = "RData/LO_sex_tail_v2.rds")
+  
+}
+
+```
+
+Sex, tail, and SCL
+
+```{r}
+if (!file.exists("RData/LO_sex_tail_SCL_v2.rds")){
+  # use mean for missing tail length:
+  #dat.1$tail_length[is.na(dat.1$tail_length)] <- mean(dat.1$tail_length, na.rm = T)
+  
+  # also use mean for missing SCL
+  dat.1$SCL[is.na(dat.1$SCL)] <- mean(dat.1$SCL, na.rm = T)
+  
+  jags.data <- list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    Sex1 = dat.1$sex01,
+                    N1 = nrow(dat.1),
+                    tail = dat.1$tail_length,
+                    SCL = dat.1$SCL)
+  
+  MCMC.params$parameters <- c("Sex1", "beta0", "beta_Sex", 
+                              "beta_T", "beta_L",
+                              "mu_H1", "sigma_H1", "deviance")
+  
+  MCMC.params$model.file = "models/Model_sex_tail_SCL.txt"
+  
+  jm <- jags(data = jags.data,
+             #inits = inits,
+             parameters.to.save= MCMC.params$parameters,
+             model.file = MCMC.params$model.file,
+             n.chains = MCMC.params$n.chains,
+             n.burnin = MCMC.params$n.burnin,
+             n.thin = MCMC.params$n.thin,
+             n.iter = MCMC.params$n.samples,
+             DIC = T, 
+             parallel=T)
+  
+  jm.out <- list(data = jags.data,
+                 params = MCMC.params,
+                 jm.out = jm)
+  
+  saveRDS(jm.out, file = "RData/LO_sex_tail_v2.rds")
+}
+
+```
+
+
+Compare results:
+```{r}
+sex_only <- readRDS("RData/LO_sex_v2.rds")
+sex_tail <- readRDS("RData/LO_sex_tail_v2.rds")
+DICs <- c(sex_only$jm.out$DIC, sex_tail$jm.out$DIC)
+DICs
+```
+
+The second model is better.  Look at the results:
+
+```{r}
+
+dat.1$pMale <- sex_tail$jm.out$mean$Sex1
+dat.1$log_muH <- sex_tail$jm.out$q50$mu_H1
+
+write.csv(dat.1, file = "data/estimated_sex_Lo_ETP_v2.csv",
+          quote = FALSE, row.names = FALSE)
+```
+
+make some plots:
+
+```{r}
+ggplot() + 
+  geom_point(data = dat.1,
+             aes(x = ID, y = pMale,
+                 size = log(Mean.testo),
+                 color = as.factor(sex01)))
+```
+
+
+```{r}
+ggplot() +
+  geom_point(data = dat.1,
+             aes(x = log_muH, y = pMale,
+                 color = as.factor(sex01)))
+```
+
