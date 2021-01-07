@@ -9,10 +9,14 @@ model {
       for (j in 1:2){
         # variability between two samples are about 0.01 (= variance)
         # so even precision = 10 (= var = 0.1) is an order of magnitude
-        # greater than the observed - should be "flat" enough
-        H1[i, j] ~ dnorm(mu_H1[i], 10)
+        # greater than the observed - should be "flat" enough - see sigma_H1
+        # below.
+        
+        H1[i, j] ~ dnorm(mu_H1[i], tau_H1)
+        loglik[i, j] <- logdensity.norm(H1[i,j], mu_H1[i], tau_H1)
+
       }
-      mu_H1[i] <- beta0 + beta_Sex * Sex1[i]
+      mu_H1[i] <- beta_0 + beta_Sex * Sex1[i]
       
   }
 
@@ -23,9 +27,13 @@ model {
 
   q ~ dbeta(1,1)
 
-  #sigma_H1 <- 1/sqrt(tau_H1)
+  # Setting SD of observations to be somewhere between 0 to 0,4, which equates
+  # to var = 0 - 0.16, which is an order of magnitude greater than the observed
+  # variance ~ 0.01
+  sigma_H1 ~ dunif(0, 0.4) #1/sqrt(tau_H1)
 
-  #tau_H1 ~ dgamma(0.1, 0.01)
-  beta0 ~ dnorm(0, 0.1)
+  tau_H1 <- 1/(sigma_H1^2) 
+
+  beta_0 ~ dnorm(0, 0.1)
   beta_Sex ~ dnorm(0, 0.1)
 }

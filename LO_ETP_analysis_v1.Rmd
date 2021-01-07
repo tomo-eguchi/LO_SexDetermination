@@ -61,7 +61,10 @@ dat.0 %>% select(Mean.TotalTestosterone_pg_per_mL,
                  Duplicate1_TotalTestosterone_pg_per_mL,
                  Duplicate2_TotalTestosterone_pg_per_mL, 
                  Date_Collected, sex,
-                 plastron_to_tip, SCL_SWFSC, LabID) %>%
+                 plastron_to_tip, plastron_to_cloaca, cloaca_to_tip,
+                 SCL_SWFSC, LabID,
+                 weight, body_depth, dN, dC,
+                 x, y) %>%
   transmute(ID = LabID, 
             Mean.testo = Mean.TotalTestosterone_pg_per_mL,
             Testo1 = Duplicate1_TotalTestosterone_pg_per_mL,
@@ -69,26 +72,132 @@ dat.0 %>% select(Mean.TotalTestosterone_pg_per_mL,
             Date = Date_Collected,
             sex = sex,
             tail_length = plastron_to_tip,
+            tail_1 = plastron_to_cloaca,
+            tail_2 = cloaca_to_tip,
             SCL = SCL_SWFSC,
-            log_Testo1_mean0 = log(Testo1) - mean(log(Testo1)),
-            log_Testo2_mean0 = log(Testo2) - mean(log(Testo2)),
+            log_Testo1_mean0 = log(Testo1),
+            log_Testo2_mean0 = log(Testo2),
             sex01 = ifelse(sex == "F", 0,
-                           ifelse(sex == "M", 1, NA))) -> dat.1
+                           ifelse(sex == "M", 1, NA)),
+            weight = weight,
+            body_depth = body_depth,
+            dN = dN,
+            dC = dC,
+            lat = y,
+            lon = x) -> dat.1
 
 summary(dat.1)
 ```
 
+Take a look at some relationships among variables
+
+```{r}
+ggplot() +
+  geom_point(data = dat.1,
+             aes(x = log(Mean.testo), y = tail_length, color = sex)) +
+  geom_point(data = dat.1 %>% filter(ID == 65855),
+             aes(x = log(Mean.testo), y = tail_length),
+             shape = 1, size = 2)
+```
+
+```{r}
+ggplot(data = dat.1) +
+  geom_point(aes(x = log(Mean.testo), y = SCL, color = sex))+
+  geom_point(data = dat.1 %>% filter(ID == 65855),
+             aes(x = log(Mean.testo), y = SCL),
+             shape = 1, size = 2)
+```
+
+
+```{r}
+ggplot(data = dat.1) +
+  geom_point(aes(x = log(Mean.testo), y = body_depth, color = sex))+
+  geom_point(data = dat.1 %>% filter(ID == 65855),
+             aes(x = log(Mean.testo), y = body_depth),
+             shape = 1, size = 2)
+```
+
+
+```{r}
+ggplot(data = dat.1) +
+  geom_point(aes(x = lon, y = lat, color = log(Mean.testo)))
+```
+
+```{r}
+ggplot(data = dat.1) +
+  geom_point(aes(x = lon, y = lat, color = sex))
+```
+
+
+```{r}
+ggplot(data = dat.1) +
+  geom_point(aes(x = lon, y = lat, color = dN))
+```
+
+
+```{r}
+ggplot(data = dat.1) +
+  geom_point(aes(x = lon, y = lat, color = dC))
+```
+
+
+```{r}
+ggplot(data = dat.1) +
+  geom_point(aes(x = lon, y = lat, color = dN/dC))
+```
+
+
+
+```{r}
+ggplot(data = dat.1) +
+  geom_point(aes(x = lon, y = lat, color = SCL))
+```
+
+
+```{r}
+ggplot(data = dat.1) +
+  geom_point(aes(x = SCL, y = weight, color = sex))
+
+# ggsave(filename = "figures/SCL_weight.png",
+#        device = "png", dpi = 400)
+```
+
+```{r}
+ggplot() +
+  geom_point(data = dat.1,
+             aes(x = tail_length, y = tail_1)) +
+  geom_point(data = dat.1,
+             aes(x = tail_length, y = tail_2),
+             color = "orange") +
+  geom_point(data = dat.1,
+             aes(x = tail_length, y = tail_1 + tail_2),
+             color = "red")
+```
+
+There are different variability in three tail length measurements. Find the best one (or the least variable).
+
+
+```{r}
+lm1 <- lm(tail_length ~ tail_1, data = dat.1)
+lm2 <- lm(tail_length ~ tail_2, data = dat.1)
+dat.1 %>% mutate(tail_12 = tail_1 + tail_2) -> dat.1.1
+lm3 <- lm(tail_length ~ tail_12, data = dat.1.1)
+
+```
+
+Interestingly, tail_1 + tail_2 (plastron to cloaca and cloaca to tip) don't add up to total length. Tail_2 (cloaca to tip) seems to be the least variable measurement. 
 
 hormone level is predicted by sex only.
 ```{r}
-if (!file.exists("RData/LO_sex_v2.rds")){
+if (!file.exists("RData/LO_sex.rds")){
 
   jags.data <- list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
                     Sex1 = dat.1$sex01,
                     N1 = nrow(dat.1))
   
-  MCMC.params$parameters <- c("Sex1", "beta0", "beta_Sex", 
-                              "mu_H1", "sigma_H1", "deviance")
+  MCMC.params$parameters <- c("Sex1", "beta_0", "beta_Sex", 
+                              "mu_H1", "sigma_H1", "deviance",
+                              "loglik")
   
   MCMC.params$model.file = "models/Model_sex.txt"
   
@@ -107,15 +216,16 @@ if (!file.exists("RData/LO_sex_v2.rds")){
                  params = MCMC.params,
                  jm.out = jm.sex)
   
-  saveRDS(jm.out, file = "RData/LO_sex_v2.rds")
+  saveRDS(jm.out, file = "RData/LO_sex.rds")
   
 }
 
 ```
 
+
 hormone level is predicted by sex and tail length.
 ```{r}
-if (!file.exists("RData/LO_sex_tail_v2.rds")){
+if (!file.exists("RData/LO_sex_tail.rds")){
   # use mean for missing tail length:
   dat.1$tail_length[is.na(dat.1$tail_length)] <- mean(dat.1$tail_length, na.rm = T)
   
@@ -124,9 +234,10 @@ if (!file.exists("RData/LO_sex_tail_v2.rds")){
                     N1 = nrow(dat.1),
                     tail = dat.1$tail_length)
   
-  MCMC.params$parameters <- c("Sex1", "beta0", "beta_Sex", 
-                              "beta_T",
-                              "mu_H1", "sigma_H1", "deviance")
+  MCMC.params$parameters <- c("Sex1", "beta_0", 
+                              "beta_Sex", "beta_T",
+                              "mu_H1", "sigma_H1", 
+                              "deviance", "loglik")
   
   MCMC.params$model.file = "models/Model_sex_tail.txt"
   
@@ -145,7 +256,48 @@ if (!file.exists("RData/LO_sex_tail_v2.rds")){
                  params = MCMC.params,
                  jm.out = jm)
   
-  saveRDS(jm.out, file = "RData/LO_sex_tail_v2.rds")
+  saveRDS(jm.out, file = "RData/LO_sex_tail.rds")
+  
+}
+
+```
+
+
+
+hormone level is predicted by sex and cloaca to tip.
+```{r}
+if (!file.exists("RData/LO_sex_tail2.rds")){
+  # use mean for missing tail length:
+  dat.1$tail_2[is.na(dat.1$tail_2)] <- mean(dat.1$tail_2, na.rm = T)
+  
+  jags.data <- list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    Sex1 = dat.1$sex01,
+                    N1 = nrow(dat.1),
+                    tail = dat.1$tail_2)
+  
+  MCMC.params$parameters <- c("Sex1", "beta_0", 
+                              "beta_Sex", "beta_T",
+                              "mu_H1", "sigma_H1", 
+                              "deviance", "loglik")
+  
+  MCMC.params$model.file = "models/Model_sex_tail.txt"
+  
+  jm <- jags(data = jags.data,
+             #inits = inits,
+             parameters.to.save= MCMC.params$parameters,
+             model.file = MCMC.params$model.file,
+             n.chains = MCMC.params$n.chains,
+             n.burnin = MCMC.params$n.burnin,
+             n.thin = MCMC.params$n.thin,
+             n.iter = MCMC.params$n.samples,
+             DIC = T, 
+             parallel=T)
+  
+  jm.out <- list(data = jags.data,
+                 params = MCMC.params,
+                 jm.out = jm)
+  
+  saveRDS(jm.out, file = "RData/LO_sex_tail2.rds")
   
 }
 
@@ -154,9 +306,9 @@ if (!file.exists("RData/LO_sex_tail_v2.rds")){
 Sex, tail, and SCL
 
 ```{r}
-if (!file.exists("RData/LO_sex_tail_SCL_v2.rds")){
+if (!file.exists("RData/LO_sex_tail_SCL.rds")){
   # use mean for missing tail length:
-  #dat.1$tail_length[is.na(dat.1$tail_length)] <- mean(dat.1$tail_length, na.rm = T)
+  dat.1$tail_length[is.na(dat.1$tail_length)] <- mean(dat.1$tail_length, na.rm = T)
   
   # also use mean for missing SCL
   dat.1$SCL[is.na(dat.1$SCL)] <- mean(dat.1$SCL, na.rm = T)
@@ -167,9 +319,10 @@ if (!file.exists("RData/LO_sex_tail_SCL_v2.rds")){
                     tail = dat.1$tail_length,
                     SCL = dat.1$SCL)
   
-  MCMC.params$parameters <- c("Sex1", "beta0", "beta_Sex", 
+  MCMC.params$parameters <- c("Sex1", "beta_0", "beta_Sex", 
                               "beta_T", "beta_L",
-                              "mu_H1", "sigma_H1", "deviance")
+                              "mu_H1", "sigma_H1", 
+                              "deviance", "loglik")
   
   MCMC.params$model.file = "models/Model_sex_tail_SCL.txt"
   
@@ -188,35 +341,305 @@ if (!file.exists("RData/LO_sex_tail_SCL_v2.rds")){
                  params = MCMC.params,
                  jm.out = jm)
   
-  saveRDS(jm.out, file = "RData/LO_sex_tail_SCL_v2.rds")
+  saveRDS(jm.out, file = "RData/LO_sex_tail_SCL.rds")
+}
+
+```
+
+Sex, cloaca to tip, and SCL
+
+```{r}
+if (!file.exists("RData/LO_sex_tail2_SCL.rds")){
+  # use mean for missing tail length:
+  dat.1$tail_2[is.na(dat.1$tail_2)] <- mean(dat.1$tail_2, na.rm = T)
+  
+  # also use mean for missing SCL
+  dat.1$SCL[is.na(dat.1$SCL)] <- mean(dat.1$SCL, na.rm = T)
+  
+  jags.data <- list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    Sex1 = dat.1$sex01,
+                    N1 = nrow(dat.1),
+                    tail = dat.1$tail_2,
+                    SCL = dat.1$SCL)
+  
+  MCMC.params$parameters <- c("Sex1", "beta_0", "beta_Sex", 
+                              "beta_T", "beta_L",
+                              "mu_H1", "sigma_H1", 
+                              "deviance", "loglik")
+  
+  MCMC.params$model.file = "models/Model_sex_tail_SCL.txt"
+  
+  jm <- jags(data = jags.data,
+             #inits = inits,
+             parameters.to.save= MCMC.params$parameters,
+             model.file = MCMC.params$model.file,
+             n.chains = MCMC.params$n.chains,
+             n.burnin = MCMC.params$n.burnin,
+             n.thin = MCMC.params$n.thin,
+             n.iter = MCMC.params$n.samples,
+             DIC = T, 
+             parallel=T)
+  
+  jm.out <- list(data = jags.data,
+                 params = MCMC.params,
+                 jm.out = jm)
+  
+  saveRDS(jm.out, file = "RData/LO_sex_tail2_SCL.rds")
+}
+
+```
+
+Sex and tail as a proportion of the SCL - the model is the same as sex-tail
+
+```{r}
+if (!file.exists("RData/LO_sex_ptail.rds")){
+  # use mean for missing tail length:
+  dat.1$tail_length[is.na(dat.1$tail_length)] <- mean(dat.1$tail_length, na.rm = T)
+
+  # also use mean for missing SCL
+  dat.1$SCL[is.na(dat.1$SCL)] <- mean(dat.1$SCL, na.rm = T)
+
+  jags.data <- list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    Sex1 = dat.1$sex01,
+                    N1 = nrow(dat.1),
+                    tail = dat.1$tail_length/dat.1$SCL)
+  
+  MCMC.params$parameters <- c("Sex1", "beta_0", 
+                              "beta_Sex", "beta_T",
+                              "mu_H1", "sigma_H1", 
+                              "deviance", "loglik")
+  
+  MCMC.params$model.file = "models/Model_sex_tail.txt"
+  
+  jm <- jags(data = jags.data,
+             #inits = inits,
+             parameters.to.save= MCMC.params$parameters,
+             model.file = MCMC.params$model.file,
+             n.chains = MCMC.params$n.chains,
+             n.burnin = MCMC.params$n.burnin,
+             n.thin = MCMC.params$n.thin,
+             n.iter = MCMC.params$n.samples,
+             DIC = T, 
+             parallel=T)
+  
+  jm.out <- list(data = jags.data,
+                 params = MCMC.params,
+                 jm.out = jm)
+  
+  saveRDS(jm.out, file = "RData/LO_sex_ptail.rds")
+
+}
+
+```
+
+Sex and cloaca to tip as a proportion of the SCL - the model is the same as sex-tail
+
+```{r}
+if (!file.exists("RData/LO_sex_ptail2.rds")){
+  # use mean for missing tail length:
+  dat.1$tail_2[is.na(dat.1$tail_2)] <- mean(dat.1$tail_2, na.rm = T)
+
+  # also use mean for missing SCL
+  dat.1$SCL[is.na(dat.1$SCL)] <- mean(dat.1$SCL, na.rm = T)
+
+  jags.data <- list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    Sex1 = dat.1$sex01,
+                    N1 = nrow(dat.1),
+                    tail = dat.1$tail_2/dat.1$SCL)
+  
+  MCMC.params$parameters <- c("Sex1", "beta_0", 
+                              "beta_Sex", "beta_T",
+                              "mu_H1", "sigma_H1", 
+                              "deviance", "loglik")
+  
+  MCMC.params$model.file = "models/Model_sex_tail.txt"
+  
+  jm <- jags(data = jags.data,
+             #inits = inits,
+             parameters.to.save= MCMC.params$parameters,
+             model.file = MCMC.params$model.file,
+             n.chains = MCMC.params$n.chains,
+             n.burnin = MCMC.params$n.burnin,
+             n.thin = MCMC.params$n.thin,
+             n.iter = MCMC.params$n.samples,
+             DIC = T, 
+             parallel=T)
+  
+  jm.out <- list(data = jags.data,
+                 params = MCMC.params,
+                 jm.out = jm)
+  
+  saveRDS(jm.out, file = "RData/LO_sex_ptail2.rds")
+
+}
+
+```
+
+Sex and tail as a proportion of the SCL and SCL - the model is the same as sex-tail-SCL
+
+```{r}
+if (!file.exists("RData/LO_sex_ptail_SCL.rds")){
+  # use mean for missing tail length:
+  dat.1$tail_length[is.na(dat.1$tail_length)] <- mean(dat.1$tail_length, na.rm = T)
+
+  # also use mean for missing SCL
+  dat.1$SCL[is.na(dat.1$SCL)] <- mean(dat.1$SCL, na.rm = T)
+
+  jags.data <- list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    Sex1 = dat.1$sex01,
+                    N1 = nrow(dat.1),
+                    tail = dat.1$tail_length/dat.1$SCL,
+                    SCL = dat.1$SCL)
+  
+  MCMC.params$parameters <- c("Sex1", "beta_0", 
+                              "beta_Sex", "beta_T",
+                              "mu_H1", "sigma_H1", 
+                              "deviance", "loglik")
+  
+  MCMC.params$model.file = "models/Model_sex_tail_SCL.txt"
+  
+  jm <- jags(data = jags.data,
+             #inits = inits,
+             parameters.to.save= MCMC.params$parameters,
+             model.file = MCMC.params$model.file,
+             n.chains = MCMC.params$n.chains,
+             n.burnin = MCMC.params$n.burnin,
+             n.thin = MCMC.params$n.thin,
+             n.iter = MCMC.params$n.samples,
+             DIC = T, 
+             parallel=T)
+  
+  jm.out <- list(data = jags.data,
+                 params = MCMC.params,
+                 jm.out = jm)
+  
+  saveRDS(jm.out, file = "RData/LO_sex_ptail_SCL.rds")
+
 }
 
 ```
 
 
-Compare results:
+Sex and cloaca to tip as a proportion of the SCL and SCL - the model is the same as sex-tail-SCL
+
 ```{r}
-sex_only <- readRDS("RData/LO_sex_v2.rds")
-sex_tail <- readRDS("RData/LO_sex_tail_v2.rds")
-sex_tail_SCL  <- readRDS("RData/LO_sex_tail_SCL_v2.rds")
-DICs <- c(sex_only$jm.out$DIC, sex_tail$jm.out$DIC, sex_tail_SCL$DIC)
-DICs
+if (!file.exists("RData/LO_sex_ptail2_SCL.rds")){
+  # use mean for missing tail length:
+  dat.1$tail_2[is.na(dat.1$tail_2)] <- mean(dat.1$tail_2, na.rm = T)
+
+  # also use mean for missing SCL
+  dat.1$SCL[is.na(dat.1$SCL)] <- mean(dat.1$SCL, na.rm = T)
+
+  jags.data <- list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    Sex1 = dat.1$sex01,
+                    N1 = nrow(dat.1),
+                    tail = dat.1$tail_2/dat.1$SCL,
+                    SCL = dat.1$SCL)
+  
+  MCMC.params$parameters <- c("Sex1", "beta_0", 
+                              "beta_Sex", "beta_T",
+                              "mu_H1", "sigma_H1", 
+                              "deviance", "loglik")
+  
+  MCMC.params$model.file = "models/Model_sex_tail_SCL.txt"
+  
+  jm <- jags(data = jags.data,
+             #inits = inits,
+             parameters.to.save= MCMC.params$parameters,
+             model.file = MCMC.params$model.file,
+             n.chains = MCMC.params$n.chains,
+             n.burnin = MCMC.params$n.burnin,
+             n.thin = MCMC.params$n.thin,
+             n.iter = MCMC.params$n.samples,
+             DIC = T, 
+             parallel=T)
+  
+  jm.out <- list(data = jags.data,
+                 params = MCMC.params,
+                 jm.out = jm)
+  
+  saveRDS(jm.out, file = "RData/LO_sex_ptail2_SCL.rds")
+
+}
+
 ```
 
-We should also use Pareto k statistic to see if the model fit right. 
 
 
 
-The second model is better.  Look at the results:
+Compare results:
+```{r}
+sex_only <- readRDS("RData/LO_sex.rds")
+DIC_sex <- sex_only$jm.out$DIC
+rm("sex_only")
+sex_tail <- readRDS("RData/LO_sex_tail.rds")
+DIC_sex_tail <- sex_tail$jm.out$DIC
+rm("sex_tail")
+sex_tail_SCL  <- readRDS("RData/LO_sex_tail_SCL.rds")
+DIC_sex_tail_SCL <- sex_tail_SCL$jm.out$DIC
+rm("sex_tail_SCL")
+sex_ptail <- readRDS("RData/LO_sex_ptail.rds")
+DIC_sex_ptail <- sex_ptail$jm.out$DIC
+rm("sex_ptail")
+sex_ptail_SCL  <- readRDS("RData/LO_sex_ptail_SCL.rds")
+DIC_sex_ptail_SCL <- sex_ptail_SCL$jm.out$DIC
+rm("sex_ptail_SCL")
+DICs <- c(DIC_sex, DIC_sex_tail, DIC_sex_tail_SCL, DIC_sex_ptail, DIC_sex_ptail_SCL)
+DICs
+```
+The fifth model is best.  We should also use Pareto k statistic to see if the model fit right. 
 
 ```{r}
 
-dat.1$pMale <- sex_tail$jm.out$mean$Sex1
-dat.1$log_muH <- sex_tail$jm.out$q50$mu_H1
+compute.LOOIC <- function(loglik, data.vector, MCMC.params){
+  library(loo)
+  n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+  
+  loglik.vec <- as.vector(loglik)
+  
+  # each column corresponds to a data point and rows are MCMC samples
+  loglik.mat <- matrix(loglik.vec, nrow = n.per.chain * MCMC.params$n.chains)
+  
+  # take out the columns that correspond to missing data points
+  loglik.mat <- loglik.mat[, !is.na(data.vector)]
+  # loglik.mat <- matrix(loglik.vec[!is.na(data.vector)], 
+  #                      nrow = MCMC.params$n.chains * n.per.chain)
+  
+  Reff <- relative_eff(exp(loglik.mat),
+                       chain_id = rep(1:MCMC.params$n.chains,
+                                      each = n.per.chain),
+                       cores = 4)
+  
+  #
+  loo.out <- loo(loglik.mat, 
+                 r_eff = Reff, 
+                 cores = 4, k_threshold = 0.7)
+  
+  out.list <- list(Reff = Reff,
+                   loo.out = loo.out)
+  
+  return(out.list)  
+}
 
-write.csv(dat.1, 
-          file = "data/estimated_sex_LO_ETP_v2.csv",
-          quote = FALSE, row.names = FALSE)
+best.model <- readRDS("RData/LO_sex_ptail_SCL.rds")
+dat.1$Model <- "sex_ptail_SCL"
+dat.1$pMale <- best.model$jm.out$mean$Sex1
+dat.1$log_muH <- best.model$jm.out$q50$mu_H1
+
+loo.out <- compute.LOOIC(loglik = best.model$jm.out$sims.list$loglik,
+                         data.vector = as.vector(best.model$data$H1),
+                         MCMC.params = MCMC.params)
+
+```
+
+Only two data points showed high Pareto k values (> 0.7) whereas others were all < 0.7. So, I'll just go with this model. Look at the results:
+
+```{r}
+
+if (!file.exists("data/estimated_sex_LO_ETP.csv"))
+  write.csv(dat.1, 
+            file = "data/estimated_sex_LO_ETP.csv",
+            quote = FALSE, row.names = FALSE)
 ```
 
 make some plots:
@@ -235,5 +658,69 @@ ggplot() +
   geom_point(data = dat.1,
              aes(x = log_muH, y = pMale,
                  color = as.factor(sex01)))
+
+# ggsave(filename = "figures/log_muH_Vs_pMale.png",
+#        device = "png", dpi = 600)
+```
+
+
+
+```{r}
+ggplot() +
+  geom_point(data = dat.1,
+             aes(x = tail_length, y = pMale,
+                 color = as.factor(sex01)))
+```
+
+
+
+
+```{r}
+ggplot() +
+  geom_point(data = dat.1,
+             aes(x = SCL, y = pMale,
+                 color = as.factor(sex01)))
+
+```
+
+```{r}
+ggplot() +
+  geom_point(data = dat.1,
+             aes(x = tail_length/SCL, y = pMale,
+                 color = as.factor(sex01)))
+
+```
+
+```{r}
+ggplot() +
+  geom_point(data = dat.1,
+             aes(x = body_depth, y = pMale,
+                 color = as.factor(sex01)))
+
+```
+
+
+```{r}
+ggplot() +
+  geom_point(data = dat.1,
+             aes(x = dN, y = pMale,
+                 color = as.factor(sex01)))
+
+```
+
+```{r}
+ggplot() +
+  geom_point(data = dat.1,
+             aes(x = dC, y = pMale,
+                 color = as.factor(sex01)))
+
+```
+
+```{r}
+ggplot() +
+  geom_point(data = dat.1,
+             aes(x = dN/dC, y = pMale,
+                 color = as.factor(sex01)))
+
 ```
 
