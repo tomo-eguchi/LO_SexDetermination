@@ -100,6 +100,8 @@ ggplot() +
              shape = 1, size = 2)
 ```
 
+The one with black circle (ID == 65855) has high probability (~0.25) of male with low testosterone concentration (see plots below).
+
 ```{r}
 ggplot(data = dat.1) +
   geom_point(aes(x = log(Mean.testo), y = SCL, color = sex))+
@@ -575,19 +577,38 @@ rm("sex_only")
 sex_tail <- readRDS("RData/LO_sex_tail.rds")
 DIC_sex_tail <- sex_tail$jm.out$DIC
 rm("sex_tail")
+sex_tail2 <- readRDS("RData/LO_sex_tail2.rds")
+DIC_sex_tail2 <- sex_tail2$jm.out$DIC
+rm("sex_tail2")
 sex_tail_SCL  <- readRDS("RData/LO_sex_tail_SCL.rds")
 DIC_sex_tail_SCL <- sex_tail_SCL$jm.out$DIC
 rm("sex_tail_SCL")
+sex_tail2_SCL  <- readRDS("RData/LO_sex_tail2_SCL.rds")
+DIC_sex_tail2_SCL <- sex_tail2_SCL$jm.out$DIC
+rm("sex_tail2_SCL")
 sex_ptail <- readRDS("RData/LO_sex_ptail.rds")
 DIC_sex_ptail <- sex_ptail$jm.out$DIC
 rm("sex_ptail")
+sex_ptail2 <- readRDS("RData/LO_sex_ptail2.rds")
+DIC_sex_ptail2 <- sex_ptail2$jm.out$DIC
+rm("sex_ptail2")
 sex_ptail_SCL  <- readRDS("RData/LO_sex_ptail_SCL.rds")
 DIC_sex_ptail_SCL <- sex_ptail_SCL$jm.out$DIC
 rm("sex_ptail_SCL")
-DICs <- c(DIC_sex, DIC_sex_tail, DIC_sex_tail_SCL, DIC_sex_ptail, DIC_sex_ptail_SCL)
+sex_ptail2_SCL  <- readRDS("RData/LO_sex_ptail2_SCL.rds")
+DIC_sex_ptail2_SCL <- sex_ptail2_SCL$jm.out$DIC
+rm("sex_ptail2_SCL")
+DICs <- data.frame(Model = c("sex_only", "sex_tail", "sex_tail2",
+                       "sex_tail_SCL", "sex_tail2_SCL",
+                       "sex_ptail", "sex_ptail2",
+                       "sex_ptail_SCL", "sex_ptail2_SCL"),
+             DIC = c(DIC_sex, DIC_sex_tail, DIC_sex_tail2, 
+                     DIC_sex_tail_SCL, DIC_sex_tail2_SCL, 
+                     DIC_sex_ptail, DIC_sex_ptail2, 
+                     DIC_sex_ptail_SCL, DIC_sex_ptail2_SCL))
 DICs
 ```
-The fifth model is best.  We should also use Pareto k statistic to see if the model fit right. 
+The sex_ptail_SCL model is best.  We should also use Pareto k statistic to see if the model fit right. 
 
 ```{r}
 
@@ -630,6 +651,7 @@ loo.out <- compute.LOOIC(loglik = best.model$jm.out$sims.list$loglik,
                          data.vector = as.vector(best.model$data$H1),
                          MCMC.params = MCMC.params)
 
+plot(loo.out$loo.out)
 ```
 
 Only two data points showed high Pareto k values (> 0.7) whereas others were all < 0.7. So, I'll just go with this model. Look at the results:
