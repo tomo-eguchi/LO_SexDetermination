@@ -10,9 +10,9 @@ library(jagsUI)
 library(tidyverse)
 library(lubridate)
 library(readr)
+library(loo)
 
 compute.LOOIC <- function(loglik, data.vector, MCMC.params){
-  library(loo)
   n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
   
   loglik.vec <- as.vector(loglik)
@@ -203,6 +203,20 @@ ggplot(data = dat.1) +
 #        device = "png", dpi = 400)
 ```
 
+
+
+```{r}
+ggplot(data = dat.1) +
+  geom_point(aes(x = SCL, y = tail_length/SCL, color = sex))  +
+  geom_point(data = dat.1 %>% filter(ID == 65855),
+             aes(x = SCL, y = tail_length/SCL),
+             shape = 1, size = 2, color = "black")
+
+# ggsave(filename = "figures/SCL_weight.png",
+#        device = "png", dpi = 400)
+```
+
+
 ```{r}
 ggplot() +
   geom_point(data = dat.1,
@@ -215,7 +229,9 @@ ggplot() +
              color = "red")  +
   geom_point(data = dat.1 %>% filter(ID == 65855),
              aes(x = tail_length, y = tail_1),
-             shape = 1, size = 2, color = "green")
+             shape = 1, size = 2, color = "green") +
+  labs(y = "tail measurements (cm)", x = "total tail length (cm)")
+
 ```
 
 There are different variability in three tail length measurements. Find the best one (or the least variable).
@@ -381,7 +397,7 @@ Compare results:
 
 LOOIC_DIC <- data.frame(Model = models,
              dDIC = DIC - min(DIC),
-             dLOOIC = LOOIC - min(LOOIC))
+             dLOOIC = LOOIC - min(LOOIC)) %>% arrange(by = dLOOIC)
 LOOIC_DIC
 ```
 
@@ -417,6 +433,13 @@ ggplot() +
                  size = log(Mean.testo),
                  color = as.factor(sex01)))
 ```
+
+Find the ID of somehwat high p(male)
+
+```{r}
+dat.1 %>% filter(pMale > 0.25 & pMale < 0.5)
+```
+
 
 
 ```{r}
