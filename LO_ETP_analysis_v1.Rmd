@@ -94,7 +94,7 @@ dat.0 %>% select(Mean.TotalTestosterone_pg_per_mL,
                  plastron_to_tip, plastron_to_cloaca, cloaca_to_tip,
                  SCL_SWFSC, LabID,
                  weight, body_depth, dN, dC,
-                 x, y) %>%
+                 x, y, Haplotype,EEZ) %>%
   transmute(ID = LabID, 
             Mean.testo = Mean.TotalTestosterone_pg_per_mL,
             Testo1 = Duplicate1_TotalTestosterone_pg_per_mL,
@@ -114,7 +114,9 @@ dat.0 %>% select(Mean.TotalTestosterone_pg_per_mL,
             dN = dN,
             dC = dC,
             lat = y,
-            lon = x) -> dat.1
+            lon = x,
+            Haplotype = as.factor(Haplotype),
+            EEZ = as.factor(EEZ)) -> dat.1
 
 summary(dat.1)
 ```
@@ -510,6 +512,22 @@ ggplot() +
   geom_point(data = dat.1,
              aes(x = dN/dC, y = pMale,
                  color = as.factor(sex01)))
+
+```
+
+```{r}
+dat.haplo <- dat.1 %>% 
+  group_by(Haplotype) %>% 
+  summarise(n = length(Haplotype), 
+            mean.pMale = mean(pMale))
+
+ggplot() +
+  geom_boxplot(data = dat.1,
+             aes(x = Haplotype, y = pMale)) +
+  geom_text(data = dat.haplo,
+            aes(x = Haplotype, y = 1.2, label = n)) +
+  geom_text(data = dat.haplo,
+            aes(x = Haplotype, y = 1.1, label = signif(mean.pMale, 1)))
 
 ```
 
