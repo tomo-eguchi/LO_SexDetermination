@@ -78,7 +78,7 @@ col_def <- cols(ID = col_integer(),
                 dN = col_double(),
                 dC = col_double())
 
-dat.0 <- read_csv(file = "data/EPacLO_2021-01-05.csv",
+dat.0 <- read_csv(file = "data/EPacLO_2021-05-13.csv",
                   col_types = col_def)
 
 summary(dat.0)
@@ -177,20 +177,29 @@ ggplot(data = dat.1) +
 
 ```{r}
 ggplot(data = dat.1) +
-  geom_point(aes(x = lon, y = lat, color = dC))
+  geom_point(aes(x = lon, y = lat, color = dC))+
+  geom_point(data = dat.1 %>% filter(ID == 65855),
+             aes(x = lon, y = lat),
+             shape = 1, size = 2, color = "orange")
 ```
 
 
 ```{r}
 ggplot(data = dat.1) +
-  geom_point(aes(x = lon, y = lat, color = dN/dC))
+  geom_point(aes(x = lon, y = lat, color = dN/dC))+
+  geom_point(data = dat.1 %>% filter(ID == 65855),
+             aes(x = lon, y = lat),
+             shape = 1, size = 2, color = "orange")
 ```
 
 
 
 ```{r}
 ggplot(data = dat.1) +
-  geom_point(aes(x = lon, y = lat, color = SCL))
+  geom_point(aes(x = lon, y = lat, color = SCL))+
+  geom_point(data = dat.1 %>% filter(ID == 65855),
+             aes(x = lon, y = lat),
+             shape = 1, size = 2, color = "orange")
 ```
 
 
@@ -251,10 +260,27 @@ Interestingly, tail_1 + tail_2 (plastron to cloaca and cloaca to tip) don't add 
 
 
 ```{r}
-models <- c("sex_only", "sex_tail", "sex_tail2", 
-            "sex_tail_SCL", "sex_tail2_SCL",
-            "sex_ptail", "sex_ptail2", 
-            "sex_ptail_SCL", "sex_ptail2_SCL")
+models <- c("sex_only", "sex_tail", "sex_tail", 
+            "sex_tail_SCL", "sex_tail_SCL",
+            "sex_tail", "sex_tail", 
+            "sex_tail_SCL", "sex_tail_SCL")
+
+model.names <- c("sex_only", "sex_tail", "sex_tail2", 
+                 "sex_tail_SCL", "sex_tail2_SCL",
+                 "sex_ptail", "sex_ptail2", 
+                 "sex_ptail_SCL", "sex_ptail2_SCL")
+
+# use mean for missing tail length:
+dat.1$tail_1[is.na(dat.1$tail_1)] <- mean(dat.1$tail_1, na.rm = T)
+
+# use mean for missing tail length:
+dat.1$tail_2[is.na(dat.1$tail_2)] <- mean(dat.1$tail_2, na.rm = T)
+
+# use the sum of tail_1 and tail_2 for missing tail length:
+dat.1$tail_length[is.na(dat.1$tail_length)] <- dat.1$tail_1[is.na(dat.1$tail_length)] + dat.1$tail_2[is.na(dat.1$tail_length)] 
+
+# also use mean for missing SCL
+dat.1$SCL[is.na(dat.1$SCL)] <- mean(dat.1$SCL, na.rm = T)
 
 jags.data.list <- list(list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
@@ -337,21 +363,13 @@ parameters.list <- list(c("Sex1", "beta_0", "beta_Sex",
 
 ```{r}
 
-# use mean for missing tail length:
-dat.1$tail_1[is.na(dat.1$tail_1)] <- mean(dat.1$tail_1, na.rm = T)
-
-# use mean for missing tail length:
-dat.1$tail_2[is.na(dat.1$tail_2)] <- mean(dat.1$tail_2, na.rm = T)
-
-# also use mean for missing SCL
-dat.1$SCL[is.na(dat.1$SCL)] <- mean(dat.1$SCL, na.rm = T)
 
 k <- 1
 LOOIC <- DIC <- vector(mode = "numeric", length = length(models))
 
 for (k in 1:length(models)){
   
-  if (!file.exists(paste0("RData/LO_", models[[k]], ".rds"))){
+  if (!file.exists(paste0("RData/LO_", model.names[[k]], ".rds"))){
     jags.data <- jags.data.list[[k]]
     MCMC.params$parameters <- parameters.list[[k]]
     MCMC.params$model.file <- paste0("models/Model_", models[[k]], ".txt")
@@ -370,20 +388,21 @@ for (k in 1:length(models)){
                    params = MCMC.params,
                    jm.out = jm.sex)
     
-    saveRDS(jm.out, file = paste0("RData/LO_", models[[k]], ".rds"))
+    saveRDS(jm.out, file = paste0("RData/LO_", model.names[[k]], ".rds"))
   } else {
-    jm.out <- readRDS(file = paste0("RData/LO_", models[[k]], ".rds"))
+    jm.out <- readRDS(file = paste0("RData/LO_", model.names[[k]], ".rds"))
     
   }
+  
   DIC[k] <- jm.out$jm.out$DIC
-  if (!file.exists(paste0("RData/LO_", models[[k]], "_loo_out.rds"))){
+  if (!file.exists(paste0("RData/LO_", model.names[[k]], "_loo_out.rds"))){
     loo.out <- compute.LOOIC(loglik = jm.out$jm.out$sims.list$loglik,
                              data.vector = as.vector(jm.out$data$H1),
                              MCMC.params = jm.out$params)
     
-    saveRDS(loo.out, paste0("RData/LO_", models[[k]], "_loo_out.rds") ) 
+    saveRDS(loo.out, paste0("RData/LO_", model.names[[k]], "_loo_out.rds") ) 
   } else {
-    loo.out <- readRDS(paste0("RData/LO_", models[[k]], "_loo_out.rds"))
+    loo.out <- readRDS(paste0("RData/LO_", model.names[[k]], "_loo_out.rds"))
   }
   LOOIC[k] <- loo.out$loo.out$estimates["looic","Estimate"]
 }
@@ -397,7 +416,7 @@ for (k in 1:length(models)){
 Compare results:
 ```{r}
 
-LOOIC_DIC <- data.frame(Model = models,
+LOOIC_DIC <- data.frame(Model = model.names,
              dDIC = DIC - min(DIC),
              dLOOIC = LOOIC - min(LOOIC)) %>% arrange(by = dLOOIC)
 LOOIC_DIC
@@ -436,7 +455,7 @@ ggplot() +
                  color = as.factor(sex01)))
 ```
 
-Find the ID of somehwat high p(male)
+Find the ID of somewhat high p(male) with low Testo values. 
 
 ```{r}
 dat.1 %>% filter(pMale > 0.25 & pMale < 0.5)
