@@ -72,13 +72,15 @@ col_def <- cols(ID = col_integer(),
                 plastron_to_tip = col_double(),
                 plastron_to_cloaca = col_double(),
                 cloaca_to_tip = col_double(),
+                plastron_to_cloaca_to_tip = col_double(),
+                dif_in_TL_measures = col_double(),
                 weight = col_double(),
                 body_depth = col_double(),
                 TP = col_double(),
                 dN = col_double(),
                 dC = col_double())
 
-dat.0 <- read_csv(file = "data/EPacLO_2021-05-13.csv",
+dat.0 <- read_csv(file = "data/EPacLO_2021-06-25.csv",
                   col_types = col_def)
 
 summary(dat.0)
@@ -438,10 +440,13 @@ plot(loo.out$loo.out)
 Only two data points showed high Pareto k values (> 0.7) whereas others were all < 0.7. So, I'll just go with this model. Look at the results:
 
 ```{r}
-
-if (!file.exists("data/estimated_sex_LO_ETP.csv"))
-  write.csv(dat.1, 
-            file = "data/estimated_sex_LO_ETP.csv",
+# combine the results with dat.0
+dat.1 %>% select(ID, tail_1, tail_2, log_Testo1_mean0, log_Testo2_mean0, pMale) %>%
+  mutate(LabID = ID) %>%  select(-ID) %>% right_join(dat.0, by = "LabID") -> dat.2
+#
+#if (!file.exists("data/estimated_sex_LO_ETP.csv"))
+  write.csv(dat.2, 
+            file = paste0("data/estimated_sex_LO_ETP_", Sys.Date(), ".csv"),
             quote = FALSE, row.names = FALSE)
 ```
 
