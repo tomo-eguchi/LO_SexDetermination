@@ -474,10 +474,10 @@ Only 3 data points showed high Pareto k values (> 0.7) whereas others were all <
 dat.1 %>% select(ID, tail_1, tail_2, log_Testo1_mean0, log_Testo2_mean0, pMale) %>%
   mutate(LabID = ID) %>%  select(-ID) %>% right_join(dat.0, by = "LabID") -> dat.2
 #
-#if (!file.exists("data/estimated_sex_LO_ETP.csv"))
-  write.csv(dat.2, 
-            file = paste0("data/estimated_sex_LO_ETP_", Sys.Date(), ".csv"),
-            quote = FALSE, row.names = FALSE)
+# if (!file.exists("data/estimated_sex_LO_ETP.csv"))
+#   write.csv(dat.2, 
+#             file = paste0("data/estimated_sex_LO_ETP_", Sys.Date(), ".csv"),
+#             quote = FALSE, row.names = FALSE)
 ```
 
 Take a look at the high Pareto k value data points:
@@ -496,6 +496,22 @@ dat.1[high_pareto_k$rowID,]
 ```
 
 The ones with high Pareto k values are with large differences between two testosterone readings. 
+
+```{r}
+dat.1 %>% mutate(log_Testo_mean = (log_Testo1_mean0 + log_Testo2_mean0)/2,
+                 log_Testo_var = (log_Testo1_mean0 - log_Testo_mean)^2 + 
+                   (log_Testo2_mean0 - log_Testo_mean)^2) -> dat.1
+
+ggplot() + geom_point(data = dat.1,
+                      aes(x = ID, y = log_Testo_var)) +
+  geom_point(data = dat.1[high_pareto_k$rowID,],
+             aes(x = ID, y = log_Testo_var),
+             color = "red")
+```
+
+Turns out variance between two readings was not the problem. 
+
+
 
 make some plots:
 
