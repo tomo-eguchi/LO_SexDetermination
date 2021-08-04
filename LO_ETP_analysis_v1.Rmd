@@ -80,7 +80,7 @@ col_def <- cols(ID = col_integer(),
                 dN = col_double(),
                 dC = col_double())
 
-dat.0 <- read_csv(file = "data/EPacLO_2021-06-29.csv",
+dat.0 <- read_csv(file = "data/EPacLO_2021-07-02.csv",
                   col_types = col_def)
 
 summary(dat.0)
@@ -454,12 +454,12 @@ LOOIC_DIC <- data.frame(Model = model.names,
 LOOIC_DIC
 ```
 
-The sex_ptail_SCL model is best.  We should also use Pareto k statistic to see if the model fit right. 
+The sex_tail_SCL model is best.  We should also use Pareto k statistic to see if the model fit right. 
 
 ```{r}
-best.model.name <- "sex_ptail_SCL"
+best.model.name <- "sex_tail_SCL"
 best.model <- readRDS(paste0("RData/LO_", best.model.name, ".rds"))
-dat.1$Model <- "sex_ptail_SCL"
+dat.1$Model <- "sex_tail_SCL"
 dat.1$pMale <- best.model$jm.out$mean$Sex1
 dat.1$log_muH <- best.model$jm.out$q50$mu_H1
 
@@ -467,17 +467,17 @@ loo.out <- readRDS(paste0("RData/LO_", best.model.name, "_loo_out.rds") )
 plot(loo.out$loo.out)
 ```
 
-Only 3 data points showed high Pareto k values (> 0.7) whereas others were all < 0.7. So, I'll just go with this model. Look at the results:
+Only 3 (maybe 2) data points showed high Pareto k values (> 0.7) whereas others were all < 0.7. So, I'll just go with this model. Look at the results:
 
 ```{r}
 # combine the results with dat.0
 dat.1 %>% select(ID, tail_1, tail_2, log_Testo1_mean0, log_Testo2_mean0, pMale) %>%
   mutate(LabID = ID) %>%  select(-ID) %>% right_join(dat.0, by = "LabID") -> dat.2
 #
-# if (!file.exists("data/estimated_sex_LO_ETP.csv"))
-#   write.csv(dat.2, 
-#             file = paste0("data/estimated_sex_LO_ETP_", Sys.Date(), ".csv"),
-#             quote = FALSE, row.names = FALSE)
+if (!file.exists(paste0("data/estimated_sex_LO_ETP_", Sys.Date(), ".csv")))
+  write.csv(dat.2,
+            file = paste0("data/estimated_sex_LO_ETP_", Sys.Date(), ".csv"),
+            quote = FALSE, row.names = FALSE)
 ```
 
 Take a look at the high Pareto k value data points:
@@ -523,7 +523,7 @@ ggplot() +
                  color = as.factor(sex01)))
 ```
 
-Find the ID of somewhat high p(male) with low Testo values. 
+Find the ID of somewhat high p(male) with low Testo values. This doesn't exist any longer. 
 
 ```{r}
 dat.1 %>% filter(pMale > 0.25 & pMale < 0.5)
