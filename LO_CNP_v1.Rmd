@@ -1,0 +1,52 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Uses data from bycaught olive ridlesy in the central North Pacific to determine the tail length when turtles mature.
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(readr)
+library(lubridate)
+
+col_defs <- cols(Turtle_Number = col_integer(),
+                 Trip = col_character(),
+                 Set = col_character(),
+                 Date = col_integer(),
+                 Latitude = col_double(),
+                 Longitude = col_double(),
+                 Sex = col_factor(levels = c("M", "F")),
+                 Sex01 = col_integer(),
+                 Maturity_State = col_factor(levels = c("Immature", "Mature")),
+                 Species = col_skip(),
+                 CCL_cm = col_double(),
+                 SCL_cm = col_double(),
+                 Extra_col = col_skip())
+
+dat.1 <- read_csv(file = "data/CNP_Lo_Bycatch.csv",
+                  col_types = col_defs) %>%
+  mutate(Date1 = ymd(Date))
+  
+summary(dat.1)
+```
+
+```{r}
+ggplot(dat.1) +
+  geom_point(aes(x = Longitude, y = Latitude, color = Sex, size = CCL_cm))
+```
+
+```{r}
+ggplot(dat.1) + 
+  geom_point(aes(x = CCL_cm, y = SCL_cm, color = Maturity_State))
+```
+
+```{r}
+
+juve <- dat.1 %>% filter(Maturity_State == "Immature")
+adults <- dat.1 %>% filter(Maturity_State == "Mature")
+
+c(max(juve$SCL_cm), min(adults$SCL_cm))
+```
+
