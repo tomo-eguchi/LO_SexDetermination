@@ -39,7 +39,8 @@ ggplot(dat.1) +
 
 ```{r}
 ggplot(dat.1) + 
-  geom_point(aes(x = CCL_cm, y = SCL_cm, color = Maturity_State))
+  geom_point(aes(x = CCL_cm, y = SCL_cm, color = Maturity_State)) +
+  facet_grid(rows = vars(Sex))
 ```
 
 ```{r}
