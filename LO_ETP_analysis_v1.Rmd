@@ -454,6 +454,17 @@ LOOIC_DIC <- data.frame(Model = model.names,
 LOOIC_DIC
 ```
 
+```{r}
+best.model.name <- "sex_ptail_SCL"
+best.model <- readRDS(paste0("RData/LO_", best.model.name, ".rds"))
+dat.1$Model <- best.model.name
+dat.1$pMale <- best.model$jm.out$mean$Sex1
+dat.1$log_muH <- best.model$jm.out$q50$mu_H1
+
+loo.out <- readRDS(paste0("RData/LO_", best.model.name, "_loo_out.rds") )
+plot(loo.out$loo.out)
+```
+
 Although the sex_ptail_SCL model is best, PSIS diagnostic plot showed more high values (>0.7) of Pareto k statistics than the sex_tail_SCL model. So, I decided to use the sex_tail_SCL.  
 
 ```{r}
@@ -467,7 +478,7 @@ loo.out <- readRDS(paste0("RData/LO_", best.model.name, "_loo_out.rds") )
 plot(loo.out$loo.out)
 ```
 
-Only 3 (maybe 2) data points showed high Pareto k values (> 0.7) whereas others were all < 0.7. So, I'll just go with this model. Look at the results:
+Only  2 data points showed high Pareto k values (> 0.7) whereas others were all < 0.7. So, I'll just go with this model. Look at the results:
 
 ```{r}
 # combine the results with dat.0
@@ -568,6 +579,16 @@ ggplot() +
                  color = as.factor(sex01)))
 
 ```
+
+```{r}
+dat.1 %>% mutate(estimatedSex = ifelse(pMale>0.5, "Male", "Female")) -> dat.1
+
+ggplot(data = dat.1) +
+  geom_point(aes(x = SCL, y = tail_length/SCL, color = estimatedSex))
+
+```
+
+
 
 ```{r}
 ggplot() +
