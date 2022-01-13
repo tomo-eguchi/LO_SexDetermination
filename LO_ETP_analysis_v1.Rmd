@@ -72,15 +72,19 @@ col_def <- cols(ID = col_integer(),
                 plastron_to_tip = col_double(),
                 plastron_to_cloaca = col_double(),
                 cloaca_to_tip = col_double(),
-                plastron_to_cloaca_to_tip = col_double(),
-                dif_in_TL_measures = col_double(),
+                #plastron_to_cloaca_to_tip = col_double(),
+                Sum_plastron_to_cloaca_to_tip = col_double(),
+                #dif_in_TL_measures = col_double(),
+                Difference_columnU_columnX = col_double(),
                 weight = col_double(),
                 body_depth = col_double(),
                 TP = col_double(),
                 dN = col_double(),
                 dC = col_double())
 
-dat.0 <- read_csv(file = "data/EPacLO_2021-07-02.csv",
+#file.name <- "data/EPacLO_2021-07-02.csv"
+file.name <- "data/EPac_LO_v2_Jan2022.csv"
+dat.0 <- read_csv(file = file.name,
                   col_types = col_def)
 
 summary(dat.0)
@@ -314,41 +318,50 @@ dat.1$tail_length[is.na(dat.1$tail_length)] <- dat.1$tail_1[is.na(dat.1$tail_len
 # also use mean for missing SCL
 dat.1$SCL[is.na(dat.1$SCL)] <- mean(dat.1$SCL, na.rm = T)
 
-jags.data.list <- list(list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+jags.data.list <- list(list(H1 = dat.1[, c("log_Testo1_mean0",
+                                           "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1)),
-                    list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                                        "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_length),
-                    list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                                        "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_2),
-                    list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                                        "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_length,
                          SCL = dat.1$SCL),
-                    list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                                        "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_2,
                          SCL = dat.1$SCL),
-                    list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                                        "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_length/dat.1$SCL),
-                    list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                                        "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_2/dat.1$SCL),
-                    list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                                        "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_length/dat.1$SCL,
                          SCL = dat.1$SCL),
-                    list(H1 = dat.1[, c("log_Testo1_mean0", "log_Testo2_mean0")],
+                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                                        "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_2/dat.1$SCL,
@@ -401,7 +414,8 @@ LOOIC <- DIC <- vector(mode = "numeric", length = length(models))
 
 for (k in 1:length(models)){
   
-  if (!file.exists(paste0("RData/LO_", model.names[[k]], ".rds"))){
+  if (!file.exists(paste0("RData/LO_", model.names[[k]],
+                          "_Jan2022.rds"))){
     jags.data <- jags.data.list[[k]]
     MCMC.params$parameters <- parameters.list[[k]]
     MCMC.params$model.file <- paste0("models/Model_", models[[k]], ".txt")
@@ -420,21 +434,26 @@ for (k in 1:length(models)){
                    params = MCMC.params,
                    jm.out = jm.sex)
     
-    saveRDS(jm.out, file = paste0("RData/LO_", model.names[[k]], ".rds"))
+    saveRDS(jm.out, file = paste0("RData/LO_", model.names[[k]],
+                                  "_Jan2022.rds"))
   } else {
-    jm.out <- readRDS(file = paste0("RData/LO_", model.names[[k]], ".rds"))
+    jm.out <- readRDS(file = paste0("RData/LO_", model.names[[k]],
+                                    "_Jan2022.rds"))
     
   }
   
   DIC[k] <- jm.out$jm.out$DIC
-  if (!file.exists(paste0("RData/LO_", model.names[[k]], "_loo_out.rds"))){
+  if (!file.exists(paste0("RData/LO_", model.names[[k]],
+                          "_loo_out_Jan2022.rds"))){
     loo.out <- compute.LOOIC(loglik = jm.out$jm.out$sims.list$loglik,
                              data.vector = as.vector(jm.out$data$H1),
                              MCMC.params = jm.out$params)
     
-    saveRDS(loo.out, paste0("RData/LO_", model.names[[k]], "_loo_out.rds") ) 
+    saveRDS(loo.out, paste0("RData/LO_", model.names[[k]], 
+                            "_loo_out_Jan2022.rds") ) 
   } else {
-    loo.out <- readRDS(paste0("RData/LO_", model.names[[k]], "_loo_out.rds"))
+    loo.out <- readRDS(paste0("RData/LO_", model.names[[k]],
+                              "_loo_out_Jan2022.rds"))
   }
   LOOIC[k] <- loo.out$loo.out$estimates["looic","Estimate"]
 }
@@ -460,6 +479,9 @@ best.model <- readRDS(paste0("RData/LO_", best.model.name, ".rds"))
 dat.1$Model <- best.model.name
 dat.1$pMale <- best.model$jm.out$mean$Sex1
 dat.1$log_muH <- best.model$jm.out$q50$mu_H1
+
+dat.1 %>% select(ID, tail_1, tail_2, log_Testo1_mean0, log_Testo2_mean0, pMale) %>%
+  mutate(LabID = ID) %>%  select(-ID) %>% right_join(dat.0, by = "LabID") -> dat.2.ptail
 
 loo.out <- readRDS(paste0("RData/LO_", best.model.name, "_loo_out.rds") )
 plot(loo.out$loo.out)
@@ -489,6 +511,10 @@ if (!file.exists(paste0("data/estimated_sex_LO_ETP_", Sys.Date(), ".csv")))
   write.csv(dat.2,
             file = paste0("data/estimated_sex_LO_ETP_", Sys.Date(), ".csv"),
             quote = FALSE, row.names = FALSE)
+
+# Look at how pMale were similar between the two models.
+summary(lm(dat.2$pMale ~ dat.2.ptail$pMale))
+
 ```
 
 Take a look at the high Pareto k value data points:
@@ -505,6 +531,24 @@ high_pareto_k <- high_pareto_k %>%
 
 dat.1[high_pareto_k$rowID,]
 ```
+
+Sex ratio of the ETP data
+```{r}
+
+dat.2 %>% mutate(Estimated_Sex = ifelse(pMale > 0.5, "Male", "Female")) %>% 
+  group_by(Estimated_Sex) %>% summarize(n = n(), ratio = n/nrow(dat.2)) -> Sex.ratio
+
+dat.2 %>% mutate(Estimated_Sex = ifelse(pMale > 0.5, "Male", "Female")) %>% 
+  filter(sex == "I") %>%
+  group_by(Estimated_Sex) %>% 
+  summarize(n = n(), ratio = n/nrow(dat.2)) -> Sex.ratio.immature
+
+dat.2 %>% mutate(Estimated_Sex = ifelse(pMale > 0.5, "Male", "Female")) %>% 
+  filter(sex != "I") %>%
+  group_by(Estimated_Sex) %>% 
+  summarize(n = n(), ratio = n/nrow(dat.2)) -> Sex.ratio.mature
+```
+
 
 The ones with high Pareto k values are with large differences between two testosterone readings. 
 
