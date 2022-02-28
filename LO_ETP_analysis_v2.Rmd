@@ -478,7 +478,7 @@ LOOIC_DIC
 Write out the LOOIC table
 ```{r}
 
-#write_csv(LOOIC_DIC, file = "data/model_comp.csv")
+write_csv(LOOIC_DIC, file = "data/model_comp_Feb2022.csv")
 
 ```
 
