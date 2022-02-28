@@ -83,7 +83,8 @@ col_def <- cols(ID = col_integer(),
                 dC = col_double())
 
 #file.name <- "data/EPacLO_2021-07-02.csv"
-file.name <- "data/EPac_LO_v2_Jan2022.csv"
+#file.name <- "data/EPac_LO_v2_Jan2022.csv"
+file.name <- "data/EPac_LO_v3_Jan2022.csv"
 dat.0 <- read_csv(file = file.name,
                   col_types = col_def)
 
@@ -473,17 +474,31 @@ LOOIC_DIC <- data.frame(Model = model.names,
 LOOIC_DIC
 ```
 
+Write out the LOOIC table
+```{r}
+
+#write_csv(LOOIC_DIC, file = "data/model_comp.csv")
+
+```
+
+
 ```{r}
 best.model.name <- "sex_ptail_SCL"
-best.model <- readRDS(paste0("RData/LO_", best.model.name, ".rds"))
+best.model <- readRDS(paste0("RData/LO_", 
+                             best.model.name, "_Jan2022.rds"))
 dat.1$Model <- best.model.name
 dat.1$pMale <- best.model$jm.out$mean$Sex1
 dat.1$log_muH <- best.model$jm.out$q50$mu_H1
 
-dat.1 %>% select(ID, tail_1, tail_2, log_Testo1_mean0, log_Testo2_mean0, pMale) %>%
-  mutate(LabID = ID) %>%  select(-ID) %>% right_join(dat.0, by = "LabID") -> dat.2.ptail
+dat.1 %>% select(ID, tail_1, tail_2, 
+                 log_Testo1_mean0, 
+                 log_Testo2_mean0, pMale) %>%
+  mutate(LabID = ID) %>%  
+  select(-ID) %>% 
+  right_join(dat.0, by = "LabID") -> dat.2.ptail
 
-loo.out <- readRDS(paste0("RData/LO_", best.model.name, "_loo_out.rds") )
+loo.out <- readRDS(paste0("RData/LO_", best.model.name, 
+                          "_loo_out_Jan2022.rds") )
 plot(loo.out$loo.out)
 ```
 
@@ -491,12 +506,16 @@ Although the sex_ptail_SCL model is best, PSIS diagnostic plot showed more high 
 
 ```{r}
 best.model.name <- "sex_tail_SCL"
-best.model <- readRDS(paste0("RData/LO_", best.model.name, ".rds"))
+best.model <- readRDS(paste0("RData/LO_", 
+                             best.model.name, 
+                             "_Jan2022.rds"))
 dat.1$Model <- best.model.name
 dat.1$pMale <- best.model$jm.out$mean$Sex1
 dat.1$log_muH <- best.model$jm.out$q50$mu_H1
 
-loo.out <- readRDS(paste0("RData/LO_", best.model.name, "_loo_out.rds") )
+loo.out <- readRDS(paste0("RData/LO_", 
+                          best.model.name, 
+                          "_loo_out_Jan2022.rds") )
 plot(loo.out$loo.out)
 ```
 
@@ -504,12 +523,18 @@ Only  2 data points showed high Pareto k values (> 0.7) whereas others were all 
 
 ```{r}
 # combine the results with dat.0
-dat.1 %>% select(ID, tail_1, tail_2, log_Testo1_mean0, log_Testo2_mean0, pMale) %>%
-  mutate(LabID = ID) %>%  select(-ID) %>% right_join(dat.0, by = "LabID") -> dat.2
+dat.1 %>% select(ID, tail_1, tail_2, 
+                 log_Testo1_mean0, 
+                 log_Testo2_mean0, pMale) %>%
+  mutate(LabID = ID) %>%  
+  select(-ID) %>% 
+  right_join(dat.0, by = "LabID") -> dat.2
 #
-if (!file.exists(paste0("data/estimated_sex_LO_ETP_", Sys.Date(), ".csv")))
+if (!file.exists(paste0("data/estimated_sex_LO_ETP_", 
+                        Sys.Date(), ".csv")))
   write.csv(dat.2,
-            file = paste0("data/estimated_sex_LO_ETP_", Sys.Date(), ".csv"),
+            file = paste0("data/estimated_sex_LO_ETP_", 
+                          Sys.Date(), ".csv"),
             quote = FALSE, row.names = FALSE)
 
 # Look at how pMale were similar between the two models.
@@ -520,7 +545,8 @@ summary(lm(dat.2$pMale ~ dat.2.ptail$pMale))
 Take a look at the high Pareto k value data points:
 
 ```{r}
-loo.out$loo.out$pointwise %>% data.frame() %>%
+loo.out$loo.out$pointwise %>% 
+  data.frame() %>%
   rownames_to_column() -> loo.out.df
 
 loo.out.df %>% filter(influence_pareto_k > 0.7) -> high_pareto_k
@@ -535,15 +561,19 @@ dat.1[high_pareto_k$rowID,]
 Sex ratio of the ETP data
 ```{r}
 
-dat.2 %>% mutate(Estimated_Sex = ifelse(pMale > 0.5, "Male", "Female")) %>% 
-  group_by(Estimated_Sex) %>% summarize(n = n(), ratio = n/nrow(dat.2)) -> Sex.ratio
+dat.2 %>% mutate(Estimated_Sex = ifelse(pMale > 0.5, 
+                                        "Male", "Female")) %>% 
+  group_by(Estimated_Sex) %>% 
+  summarize(n = n(), ratio = n/nrow(dat.2)) -> Sex.ratio
 
-dat.2 %>% mutate(Estimated_Sex = ifelse(pMale > 0.5, "Male", "Female")) %>% 
+dat.2 %>% mutate(Estimated_Sex = ifelse(pMale > 0.5, 
+                                        "Male", "Female")) %>% 
   filter(sex == "I") %>%
   group_by(Estimated_Sex) %>% 
   summarize(n = n(), ratio = n/nrow(dat.2)) -> Sex.ratio.immature
 
-dat.2 %>% mutate(Estimated_Sex = ifelse(pMale > 0.5, "Male", "Female")) %>% 
+dat.2 %>% mutate(Estimated_Sex = ifelse(pMale > 0.5, 
+                                        "Male", "Female")) %>% 
   filter(sex != "I") %>%
   group_by(Estimated_Sex) %>% 
   summarize(n = n(), ratio = n/nrow(dat.2)) -> Sex.ratio.mature
@@ -564,7 +594,14 @@ ggplot() + geom_point(data = dat.1,
              color = "red")
 ```
 
-Turns out variance between two readings was not the problem. 
+Turns out variance between two readings was not the problem. Although there is one data point with a huge variance... 
+
+```{r}
+dat.1 %>% filter(log_Testo_var > 2)
+
+
+```
+
 
 
 
