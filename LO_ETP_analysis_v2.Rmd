@@ -3,7 +3,7 @@ title: "Analysis of olive ridleys in ETP"
 output: html_notebook
 ---
 
-Analysis of hormone data for olive ridleys in ETP
+Analysis of hormone data for olive ridleys in ETP. Feb 2022 version.
 
 ```{r}
 library(jagsUI)
@@ -11,6 +11,8 @@ library(tidyverse)
 library(lubridate)
 library(readr)
 library(loo)
+
+save.fig <- F
 
 compute.LOOIC <- function(loglik, data.vector, MCMC.params){
   n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
@@ -52,7 +54,7 @@ MCMC.params <- list(n.samples = 70000,
 ```{r}
 col_def <- cols(ID = col_integer(),
                 LabID = col_integer(),
-                Date_Collected = col_date(format = "%m/%d/%Y"),
+                Date_Collected = col_date(format = "%m/%d/%y"),
                 SCL_SWFSC = col_double(),
                 CCL_SWFSC = col_double(),
                 Predicted.Sex = col_character(),
@@ -60,6 +62,7 @@ col_def <- cols(ID = col_integer(),
                 Duplicate1_TotalTestosterone_pg_per_mL = col_double(),
                 Duplicate2_TotalTestosterone_pg_per_mL = col_double(),
                 CaptureID = col_integer(),
+                TH20_C = col_double(),
                 Month = col_integer(),
                 Day = col_integer(),
                 Year = col_integer(),
@@ -85,7 +88,7 @@ col_def <- cols(ID = col_integer(),
 #file.name <- "data/EPacLO_2021-07-02.csv"
 #file.name <- "data/EPac_LO_v2_Jan2022.csv"
 #file.name <- "data/EPac_LO_v3_Jan2022.csv"
-file.name <- "data/EPac_Updated13Jan22_18Feb22_TE.csv"
+file.name <- "data/EPac_LO_TH20_18Feb2022.csv"
 dat.0 <- read_csv(file = file.name,
                   col_types = col_def)
 
@@ -100,7 +103,7 @@ dat.0 %>% select(Mean.TotalTestosterone_pg_per_mL,
                  Duplicate2_TotalTestosterone_pg_per_mL, 
                  Date_Collected, sex,
                  plastron_to_tip, plastron_to_cloaca, cloaca_to_tip,
-                 SCL_SWFSC, LabID,
+                 SCL_SWFSC, LabID, TH20_C,
                  weight, body_depth, dN, dC,
                  x, y, Haplotype,EEZ) %>%
   transmute(ID = LabID, 
@@ -124,56 +127,43 @@ dat.0 %>% select(Mean.TotalTestosterone_pg_per_mL,
             lat = y,
             lon = x,
             Haplotype = as.factor(Haplotype),
-            EEZ = as.factor(EEZ)) -> dat.1
+            EEZ = as.factor(EEZ), 
+            TempC = TH20_C) -> dat.1
 
 summary(dat.1)
 ```
 
-Take a look at some relationships among variables
+Take a look at some relationships among variables. 
+
 
 ```{r}
 ggplot() +
   geom_point(data = dat.1,
-             aes(x = log(Mean.testo), y = tail_length, color = sex)) +
-  geom_point(data = dat.1 %>% filter(ID == 65855),
-             aes(x = log(Mean.testo), y = tail_length),
-             shape = 1, size = 2)
-```
-
-The one with black circle (ID == 65855) has high probability (~0.25) of male with low testosterone concentration (see plots below).
-
-```{r}
-ggplot(data = dat.1) +
-  geom_point(aes(x = log(Mean.testo), y = SCL, color = sex))+
-  geom_point(data = dat.1 %>% filter(ID == 65855),
-             aes(x = log(Mean.testo), y = SCL),
-             shape = 1, size = 2)
+             aes(x = log(Mean.testo), y = tail_length, color = sex)) 
 ```
 
 
 ```{r}
 ggplot(data = dat.1) +
-  geom_point(aes(x = log(Mean.testo), y = body_depth, color = sex)) +
-  geom_point(data = dat.1 %>% filter(ID == 65855),
-             aes(x = log(Mean.testo), y = body_depth),
-             shape = 1, size = 2)
+  geom_point(aes(x = log(Mean.testo), y = SCL, color = sex))
 ```
 
 
 ```{r}
 ggplot(data = dat.1) +
-  geom_point(aes(x = lon, y = lat, color = log(Mean.testo)))  +
-  geom_point(data = dat.1 %>% filter(ID == 65855),
-             aes(x = lon, y = lat),
-             shape = 1, size = 2, color = "orange")
+  geom_point(aes(x = log(Mean.testo), y = body_depth, color = sex)) 
+```
+
+
+```{r}
+ggplot(data = dat.1) +
+  geom_point(aes(x = lon, y = lat, color = log(Mean.testo)))  
 ```
 
 ```{r}
 ggplot(data = dat.1) +
-  geom_point(aes(x = lon, y = lat, color = sex))  +
-  geom_point(data = dat.1 %>% filter(ID == 65855),
-             aes(x = lon, y = lat),
-             shape = 1, size = 2, color = "black")
+  geom_point(aes(x = lon, y = lat, color = sex))  
+
 ```
 
 
@@ -185,51 +175,68 @@ ggplot(data = dat.1) +
 
 ```{r}
 ggplot(data = dat.1) +
-  geom_point(aes(x = lon, y = lat, color = dC))+
-  geom_point(data = dat.1 %>% filter(ID == 65855),
-             aes(x = lon, y = lat),
-             shape = 1, size = 2, color = "orange")
+  geom_point(aes(x = lon, y = lat, color = dC))
+
 ```
 
 
 ```{r}
 ggplot(data = dat.1) +
-  geom_point(aes(x = lon, y = lat, color = dN/dC))+
-  geom_point(data = dat.1 %>% filter(ID == 65855),
-             aes(x = lon, y = lat),
-             shape = 1, size = 2, color = "orange")
+  geom_point(aes(x = lon, y = lat, color = dN/dC))
+
 ```
 
 
 
 ```{r}
 ggplot(data = dat.1) +
-  geom_point(aes(x = lon, y = lat, color = SCL))+
-  geom_point(data = dat.1 %>% filter(ID == 65855),
-             aes(x = lon, y = lat),
-             shape = 1, size = 2, color = "orange")
+  geom_point(aes(x = lon, y = lat, color = SCL))
+
 ```
 
 
 ```{r}
 ggplot(data = dat.1) +
-  geom_point(aes(x = SCL, y = weight, color = sex))  +
-  geom_point(data = dat.1 %>% filter(ID == 65855),
-             aes(x = SCL, y = weight),
-             shape = 1, size = 2, color = "black")
+  geom_point(aes(x = SCL, y = weight, color = sex))  
 
-# ggsave(filename = "figures/SCL_weight.png",
-#        device = "png", dpi = 400)
+if (save.fig)
+  ggsave(filename = "figures/SCL_weight.png",
+         device = "png", dpi = 400)
 ```
+
+For missing values in temperature, latitude ranged from 14.92 to 16.57 and longitude from -100.52 to -99.38. 
+
+I selected all data in this lat/lon range and gave the mean value to the missing values.
+
+```{r}
+
+dat.1 %>% filter(is.na(TempC)) %>%
+  select(lat, lon) %>% 
+  summarise(min.lat = min(lat),
+            max.lat = max(lat),
+            min.lon = min(lon),
+            max.lon = max(lon)) -> lat.lon.TempEqNA
+
+dat.1 %>% filter(lat >= lat.lon.TempEqNA$min.lat & 
+                   lat <= lat.lon.TempEqNA$max.lat &
+                   lon >= lat.lon.TempEqNA$min.lon &
+                   lon <= lat.lon.TempEqNA$max.lat) %>%
+  summarise(mean.temp = mean(TempC, na.rm = T),
+            sd.temp = sqrt(var(TempC, na.rm = T))) -> mean.Temp
+
+dat.1$TempC[is.na(dat.1$TempC)] <- as.double(mean.Temp$mean.temp)
+
+ggplot(data = dat.1 %>% filter()) +
+  geom_point(aes(x = lat, y = TempC))
+```
+
 
 We decided to use the regression line to estimate SCL of 65833, which has weight but not SCL. 
 
 ```{r}
 ggplot(data = dat.1) +
   geom_point(aes(y = SCL, x = log(weight), color = sex))
-  # geom_point(data = dat.1 %>% filter(ID == 65855),
-  #            aes(x = SCL, y = weight),
-  #            shape = 1, size = 2, color = "black")
+
 
 ```
 
@@ -256,13 +263,11 @@ dat.1 %>%
 
 ```{r}
 ggplot(data = dat.1) +
-  geom_point(aes(x = SCL, y = tail_length/SCL, color = sex))  +
-  geom_point(data = dat.1 %>% filter(ID == 65855),
-             aes(x = SCL, y = tail_length/SCL),
-             shape = 1, size = 2, color = "black")
+  geom_point(aes(x = SCL, y = tail_length/SCL, color = sex))  
 
-# ggsave(filename = "figures/SCL_weight.png",
-#        device = "png", dpi = 400)
+if (save.fig)
+  ggsave(filename = "figures/SCL_weight_Feb2022.png",
+         device = "png", dpi = 400)
 ```
 
 
@@ -275,10 +280,7 @@ ggplot() +
              color = "orange") +
   geom_point(data = dat.1,
              aes(x = tail_length, y = tail_1 + tail_2),
-             color = "red")  +
-  geom_point(data = dat.1 %>% filter(ID == 65855),
-             aes(x = tail_length, y = tail_1),
-             shape = 1, size = 2, color = "green") +
+             color = "red") +
   labs(y = "tail measurements (cm)", x = "total tail length (cm)")
 
 ```
@@ -298,15 +300,21 @@ Interestingly, tail_1 + tail_2 (plastron to cloaca and cloaca to tip) don't add 
 
 
 ```{r}
-models <- c("sex_only", "sex_tail", "sex_tail", 
-            "sex_tail_SCL", "sex_tail_SCL",
+models <- c("sex_only", 
+            "sex_tail", "sex_tail", "sex_temp",
+            "sex_tail_SCL", "sex_tail_SCL", "sex_tail_temp", "sex_tail_temp",
+            "sex_tail_SCL_temp", "sex_tail_SCL_temp",
             "sex_tail", "sex_tail", 
-            "sex_tail_SCL", "sex_tail_SCL")
+            "sex_tail_SCL", "sex_tail_SCL", "sex_tail_temp", "sex_tail_temp",
+            "sex_tail_SCL_temp", "sex_tail_SCL_temp")
 
-model.names <- c("sex_only", "sex_tail", "sex_tail2", 
-                 "sex_tail_SCL", "sex_tail2_SCL",
+model.names <- c("sex_only", 
+                 "sex_tail", "sex_tail2", "sex_temp",
+                 "sex_tail_SCL", "sex_tail2_SCL", "sex_tail_temp", "sex_tail2_temp",
+                 "sex_tail_SCL_temp", "sex_tail2_SCL_temp",
                  "sex_ptail", "sex_ptail2", 
-                 "sex_ptail_SCL", "sex_ptail2_SCL")
+                 "sex_ptail_SCL", "sex_ptail2_SCL", "sex_ptail_temp", "sex_ptail2_temp",
+                 "sex_ptail_SCL_temp", "sex_ptail2_SCL_temp")
 
 # use mean for missing tail length:
 dat.1$tail_1[is.na(dat.1$tail_1)] <- mean(dat.1$tail_1, na.rm = T)
@@ -320,90 +328,119 @@ dat.1$tail_length[is.na(dat.1$tail_length)] <- dat.1$tail_1[is.na(dat.1$tail_len
 # also use mean for missing SCL
 dat.1$SCL[is.na(dat.1$SCL)] <- mean(dat.1$SCL, na.rm = T)
 
-jags.data.list <- list(list(H1 = dat.1[, c("log_Testo1_mean0",
+
+jags.data.list <- list(list(H1 = dat.1[, c("log_Testo1_mean0",    #sex_only
                                            "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1)),
-                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                    list(H1 = dat.1[, c("log_Testo1_mean0",       #sex_tail
                                         "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_length),
-                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                    list(H1 = dat.1[, c("log_Testo1_mean0",      # sex_tail2
                                         "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_2),
-                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                    list(H1 = dat.1[, c("log_Testo1_mean0",      # sex_temp
+                                        "log_Testo2_mean0")],
+                         Sex1 = dat.1$sex01,
+                         N1 = nrow(dat.1),
+                         temp = dat.1$TempC),
+                    list(H1 = dat.1[, c("log_Testo1_mean0",    # sex_tail_SCL
                                         "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_length,
                          SCL = dat.1$SCL),
-                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                    list(H1 = dat.1[, c("log_Testo1_mean0",   #sex_tail2_SCL
                                         "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_2,
                          SCL = dat.1$SCL),
-                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                    list(H1 = dat.1[, c("log_Testo1_mean0",   #sex_tail_temp
+                                        "log_Testo2_mean0")],
+                         Sex1 = dat.1$sex01,
+                         N1 = nrow(dat.1),
+                         tail = dat.1$tail_length,
+                         temp = dat.1$TempC),
+                    list(H1 = dat.1[, c("log_Testo1_mean0",   #sex_tail2_temp
+                                        "log_Testo2_mean0")],
+                         Sex1 = dat.1$sex01,
+                         N1 = nrow(dat.1),
+                         tail = dat.1$tail_2,
+                         temp = dat.1$TempC),
+                    list(H1 = dat.1[, c("log_Testo1_mean0",   #sex_tail_SCL_temp
+                                        "log_Testo2_mean0")],
+                         Sex1 = dat.1$sex01,
+                         N1 = nrow(dat.1),
+                         tail = dat.1$tail_length,
+                         temp = dat.1$TempC,
+                         SCL = dat.1$SCL),
+                    list(H1 = dat.1[, c("log_Testo1_mean0",   #sex_tail2_SCL_temp
+                                        "log_Testo2_mean0")],
+                         Sex1 = dat.1$sex01,
+                         N1 = nrow(dat.1),
+                         tail = dat.1$tail_2,
+                         temp = dat.1$TempC,
+                         SCL = dat.1$SCL),
+                    
+                    list(H1 = dat.1[, c("log_Testo1_mean0",    #sex_ptail
                                         "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_length/dat.1$SCL),
-                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                    list(H1 = dat.1[, c("log_Testo1_mean0",   #sex_ptail2
                                         "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_2/dat.1$SCL),
-                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                    list(H1 = dat.1[, c("log_Testo1_mean0",   # sex_ptail_SCL
                                         "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_length/dat.1$SCL,
                          SCL = dat.1$SCL),
-                    list(H1 = dat.1[, c("log_Testo1_mean0",
+                    list(H1 = dat.1[, c("log_Testo1_mean0",   # sex_ptail2_SCL
                                         "log_Testo2_mean0")],
                          Sex1 = dat.1$sex01,
                          N1 = nrow(dat.1),
                          tail = dat.1$tail_2/dat.1$SCL,
+                         SCL = dat.1$SCL),
+                    list(H1 = dat.1[, c("log_Testo1_mean0",   #sex_ptail_temp
+                                        "log_Testo2_mean0")],
+                         Sex1 = dat.1$sex01,
+                         N1 = nrow(dat.1),
+                         tail = dat.1$tail_length/dat.1$SCL,
+                         temp = dat.1$TempC),
+                    list(H1 = dat.1[, c("log_Testo1_mean0",   #sex_ptail2_temp
+                                        "log_Testo2_mean0")],
+                         Sex1 = dat.1$sex01,
+                         N1 = nrow(dat.1),
+                         tail = dat.1$tail_2/dat.1$SCL,
+                         temp = dat.1$TempC),
+                    list(H1 = dat.1[, c("log_Testo1_mean0",   #sex_ptail_SCL_temp
+                                        "log_Testo2_mean0")],
+                         Sex1 = dat.1$sex01,
+                         N1 = nrow(dat.1),
+                         tail = dat.1$tail_length/dat.1$SCL,
+                         temp = dat.1$TempC,
+                         SCL = dat.1$SCL),
+                    list(H1 = dat.1[, c("log_Testo1_mean0",   #sex_ptail2_SCL_temp
+                                        "log_Testo2_mean0")],
+                         Sex1 = dat.1$sex01,
+                         N1 = nrow(dat.1),
+                         tail = dat.1$tail_2/dat.1$SCL,
+                         temp = dat.1$TempC,
                          SCL = dat.1$SCL))
 
-parameters.list <- list(c("Sex1", "beta_0", "beta_Sex", 
-                       "mu_H1", "sigma_H1", "deviance",
-                       "loglik"),
-                     c("Sex1", "beta_0", 
-                       "beta_Sex", "beta_T",
-                       "mu_H1", "sigma_H1", 
-                       "deviance", "loglik"),
-                     c("Sex1", "beta_0", 
-                       "beta_Sex", "beta_T",
-                       "mu_H1", "sigma_H1", 
-                       "deviance", "loglik"),
-                     c("Sex1", "beta_0", "beta_Sex", 
-                       "beta_T", "beta_L",
-                       "mu_H1", "sigma_H1", 
-                       "deviance", "loglik"),
-                     c("Sex1", "beta_0", "beta_Sex", 
-                       "beta_T", "beta_L",
-                       "mu_H1", "sigma_H1", 
-                       "deviance", "loglik"),
-                     c("Sex1", "beta_0", 
-                       "beta_Sex", "beta_T",
-                       "mu_H1", "sigma_H1", 
-                       "deviance", "loglik"),
-                     c("Sex1", "beta_0", 
-                       "beta_Sex", "beta_T",
-                       "mu_H1", "sigma_H1", 
-                       "deviance", "loglik"),
-                     c("Sex1", "beta_0", 
-                       "beta_Sex", "beta_T",
-                       "mu_H1", "sigma_H1", 
-                       "deviance", "loglik"),
-                     c("Sex1", "beta_0", 
-                       "beta_Sex", "beta_T",
-                       "mu_H1", "sigma_H1", 
-                       "deviance", "loglik") )
+parameters <- c("Sex1", 
+                "beta_0", "beta_Sex", "beta_T", "beta_L", "beta_temp",
+                "mu_H1", "sigma_H1", 
+                "deviance", "loglik")
+
 
 ```
 
@@ -419,7 +456,7 @@ for (k in 1:length(models)){
   if (!file.exists(paste0("RData/LO_", model.names[[k]],
                           "_Feb2022.rds"))){
     jags.data <- jags.data.list[[k]]
-    MCMC.params$parameters <- parameters.list[[k]]
+    MCMC.params$parameters <- parameters
     MCMC.params$model.file <- paste0("models/Model_", models[[k]], ".txt")
     jm.sex <- jags(data = jags.data,
                    #inits = inits,
@@ -484,7 +521,7 @@ write_csv(LOOIC_DIC, file = "data/model_comp_Feb2022.csv")
 
 
 ```{r}
-best.model.name <- "sex_ptail_SCL"
+best.model.name <- LOOIC_DIC[1, "Model"] # "sex_ptail_SCL"
 best.model <- readRDS(paste0("RData/LO_", 
                              best.model.name, "_Feb2022.rds"))
 dat.1$Model <- best.model.name
@@ -503,24 +540,43 @@ loo.out <- readRDS(paste0("RData/LO_", best.model.name,
 plot(loo.out$loo.out)
 ```
 
-Although the sex_ptail_SCL model is best, PSIS diagnostic plot showed more high values (>0.7) of Pareto k statistics than the sex_tail_SCL model. So, I decided to use the sex_tail_SCL.  
+There are some high Pareto K statistics... Take a look at the second best model:
 
 ```{r}
-best.model.name <- "sex_tail_SCL"
-best.model <- readRDS(paste0("RData/LO_", 
-                             best.model.name, 
-                             "_Feb2022.rds"))
-dat.1$Model <- best.model.name
-dat.1$pMale <- best.model$jm.out$mean$Sex1
-dat.1$log_muH <- best.model$jm.out$q50$mu_H1
+second.model.name <- LOOIC_DIC[2, "Model"] 
+second.model <- readRDS(paste0("RData/LO_", 
+                             second.model.name, "_Feb2022.rds"))
+dat.1$Model <- second.model.name
+dat.1$pMale <- second.model$jm.out$mean$Sex1
+dat.1$log_muH <- second.model$jm.out$q50$mu_H1
 
-loo.out <- readRDS(paste0("RData/LO_", 
-                          best.model.name, 
+loo.out <- readRDS(paste0("RData/LO_", second.model.name, 
                           "_loo_out_Feb2022.rds") )
 plot(loo.out$loo.out)
+
+
 ```
 
-Only  2 data points showed high Pareto k values (> 0.7) whereas others were all < 0.7. So, I'll just go with this model. Look at the results:
+About the same as the first one. 
+
+```{r}
+third.model.name <- LOOIC_DIC[3, "Model"] 
+third.model <- readRDS(paste0("RData/LO_", 
+                             third.model.name, "_Feb2022.rds"))
+dat.1$Model <- third.model.name
+dat.1$pMale <- third.model$jm.out$mean$Sex1
+dat.1$log_muH <- third.model$jm.out$q50$mu_H1
+
+loo.out <- readRDS(paste0("RData/LO_", third.model.name, 
+                          "_loo_out_Feb2022.rds") )
+plot(loo.out$loo.out)
+
+```
+
+Although the sex_ptail_SCL and sex_ptail_SCL_temp models are the first and secon best, PSIS diagnostic plot showed more high values (>0.7) of Pareto k statistics than the sex_tail_SCL model. So, I decided to use the sex_tail_SCL.  
+
+
+Only 3 data points showed high Pareto k values (> 0.7) whereas others were all < 0.7. So, I'll just go with this model. Look at the results:
 
 ```{r}
 # combine the results with dat.0
@@ -556,8 +612,42 @@ high_pareto_k <- high_pareto_k %>%
   mutate(rowID = as.numeric(rowname)) %>%
   mutate(rowID = replace(rowID, rowID > nrow(dat.1), rowID[rowID > nrow(dat.1)] - nrow(dat.1))) 
 
-dat.1[high_pareto_k$rowID,]
+#dat.1 %>% mutate(var_Testo = ((Testo1 - Mean.testo)^2 + (Testo2 - Mean.testo)^2)) -> dat.1
+
 ```
+
+
+```{r}
+dat.1 %>% mutate(log_Testo_mean = (log_Testo1_mean0 + log_Testo2_mean0)/2,
+                 log_Testo_var = (log_Testo1_mean0 - log_Testo_mean)^2 + 
+                   (log_Testo2_mean0 - log_Testo_mean)^2) -> dat.1
+
+ggplot() + geom_point(data = dat.1,
+                      aes(x = ID, y = log_Testo_var)) +
+  geom_point(data = dat.1[high_pareto_k$rowID,],
+             aes(x = ID, y = log_Testo_var),
+             color = "red")
+```
+
+
+```{r}
+dat.1[high_pareto_k$rowID, c("ID", "Mean.testo", "log_Testo_mean", "SCL", "tail_length")]
+```
+
+
+```{r}
+
+ggplot(data = dat.1) +
+  geom_point(aes(x = SCL, y = tail_length, color = sex)) +
+  geom_point(data = dat.1 %>% filter(ID == 65937 | ID == 65844 | ID == 65856),
+             aes(x = SCL, y = tail_length),
+             shape = 1, size = 2)
+
+
+```
+
+Not sure why these three came back with high Pareto K values...
+
 
 Sex ratio of the ETP data
 ```{r}
@@ -581,29 +671,6 @@ dat.2 %>% mutate(Estimated_Sex = ifelse(pMale > 0.5,
 ```
 
 
-The ones with high Pareto k values are with large differences between two testosterone readings. 
-
-```{r}
-dat.1 %>% mutate(log_Testo_mean = (log_Testo1_mean0 + log_Testo2_mean0)/2,
-                 log_Testo_var = (log_Testo1_mean0 - log_Testo_mean)^2 + 
-                   (log_Testo2_mean0 - log_Testo_mean)^2) -> dat.1
-
-ggplot() + geom_point(data = dat.1,
-                      aes(x = ID, y = log_Testo_var)) +
-  geom_point(data = dat.1[high_pareto_k$rowID,],
-             aes(x = ID, y = log_Testo_var),
-             color = "red")
-```
-
-Turns out variance between two readings was not the problem. Although there is one data point with a huge variance... 
-
-```{r}
-dat.1 %>% filter(log_Testo_var > 2)
-
-
-```
-
-
 
 
 make some plots:
@@ -615,13 +682,6 @@ ggplot() +
                  size = log(Mean.testo),
                  color = as.factor(sex01)))
 ```
-
-Find the ID of somewhat high p(male) with low Testo values. This doesn't exist any longer. 
-
-```{r}
-dat.1 %>% filter(pMale > 0.25 & pMale < 0.5)
-```
-
 
 
 ```{r}
@@ -667,6 +727,13 @@ dat.1 %>% mutate(estimatedSex = ifelse(pMale>0.5, "Male", "Female")) -> dat.1
 
 ggplot(data = dat.1) +
   geom_point(aes(x = SCL, y = tail_length/SCL, color = estimatedSex))
+
+```
+
+
+```{r}
+ggplot(data = dat.1) +
+  geom_point(aes(x = SCL, y = tail_length, color = estimatedSex))
 
 ```
 
