@@ -10,6 +10,7 @@ rm(list=ls())
 library(tidyverse)
 library(readr)
 library(lubridate)
+save.fig <- F
 
 col_defs <- cols(Turtle_Number = col_integer(),
                  Trip = col_character(),
@@ -157,8 +158,9 @@ ggplot(dat.all) +
   geom_point(aes(x = SCL_cm, y = CCL_cm)) + 
   facet_grid(Location ~ Est_Sex)
 
-# ggsave(filename = "figures/CCL_SCL_Sex_location.png",
-#        device = "png", dpi = 600)
+if (save.fig)
+  ggsave(filename = "figures/CCL_SCL_Sex_location.png",
+         device = "png", dpi = 600)
 ```
 
 Fit Gaussian mixture models to ETP and CNP datasets separately.
@@ -199,7 +201,8 @@ ggplot() +
   #geom_path(aes(x = SCL, y = density)) +  
   #geom_rug(aes(x = SCL)) 
 
-ggsave(filename = "figures/CNP_SCL.png", device = "png", dpi = 600)
+if (save.fig)
+  ggsave(filename = "figures/CNP_SCL.png", device = "png", dpi = 600)
 ```
 
 
@@ -229,8 +232,8 @@ ggplot() +
   theme(text = element_text(size = 12),
         axis.text = element_text(size = 11))
 
-
-ggsave(filename = "figures/ETP_SCL.png", device = "png", dpi = 600)
+if (save.fig)
+  ggsave(filename = "figures/ETP_SCL.png", device = "png", dpi = 600)
 ```
 
 So, for the ETP dataset, a mixture of 4 distributions maximizes BIC, whereas for the CNP dataset 2 distributions maximizes it. 
