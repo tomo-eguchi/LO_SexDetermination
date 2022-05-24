@@ -1,0 +1,288 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Uses data from bycaught olive ridlesy in the central North Pacific to determine the tail length when turtles mature.
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+library(readr)
+library(lubridate)
+
+col_defs <- cols(Turtle_Number = col_integer(),
+                 Trip = col_character(),
+                 Set = col_character(),
+                 DATE = col_integer(),
+                 Latitude_DD = col_double(),
+                 Longitude_DD = col_double(),
+                 Sex = col_factor(levels = c("M", "F")),
+                 Sex_1isF = col_integer(),
+                 Maturity_State = col_factor(levels = c("Immature", "Mature", "Unknown")),
+                 Species = col_skip(),
+                 CCL_cm = col_double(),
+                 SCL_cm = col_double(),
+                 Total_Tail_cm = col_double(),
+                 Plastron_to_Cloaca_cm = col_double(),
+                 CaseAcc = col_character(),
+                 Event_ID =col_character())
+
+dat.CNP <- read_csv(file = "data/CNP_Lo_Bycatch_v2_May2022.csv",
+                  col_types = col_defs) %>%
+  mutate(Date1 = ymd(DATE),
+         Longitude = Longitude_DD,
+         Latitude = Latitude_DD)
+  
+summary(dat.CNP)
+```
+
+```{r}
+ggplot(dat.CNP) +
+  geom_point(aes(x = Longitude, y = Latitude, color = Sex, size = CCL_cm))
+```
+
+```{r}
+ggplot(dat.CNP) + 
+  geom_point(aes(x = CCL_cm, y = SCL_cm, color = Maturity_State)) +
+  facet_grid(rows = vars(Sex))
+```
+
+```{r}
+
+juve <- dat.CNP %>% filter(Maturity_State == "Immature")
+adults <- dat.CNP %>% filter(Maturity_State == "Mature")
+
+c(max(juve$SCL_cm), min(adults$SCL_cm))
+```
+
+Look at how sex ratio changed over the years:
+
+```{r}
+dat.CNP %>% mutate(Year = year(Date1)) %>%
+  group_by(Year) %>% summarise(N = n(), 
+                               M = sum(Sex == "M"),
+                               F = sum(Sex == "F")) %>%
+  mutate(Groups = ifelse(Year < 2011, 1, 
+                         ifelse(Year < 2016, 2, 3)))-> sex.by.year
+
+
+sex.by.year %>% group_by(Groups) %>%
+  summarize(N = sum(N), M = sum(M), F = sum(F)) %>%
+  mutate(F_Ratio = F/N)-> tmp
+
+tmp
+```
+
+Sex ratio didn't change that much over time (2005-2010 = 0.67 (n=6), 2011-2015 = 0.78 (n=40), 2016-2018 = 0.61 (n=75))
+
+Comparing SCL between locations...
+
+Need to bring in the Epac dataset.
+
+
+```{r}
+col_def <- cols(ID = col_integer(),
+                LabID = col_integer(),
+                Date_Collected = col_date(),
+                SCL_SWFSC = col_double(),
+                CCL_SWFSC = col_double(),
+                Predicted.Sex = col_character(),
+                Mean.TotalTestosterone_pg_per_mL = col_double(),
+                Duplicate1_TotalTestosterone_pg_per_mL = col_double(),
+                Duplicate2_TotalTestosterone_pg_per_mL = col_double(),
+                CaptureID = col_integer(),
+                TH20_C = col_double(),
+                Month = col_integer(),
+                Day = col_integer(),
+                Year = col_integer(),
+                Time = col_skip(),   #col_time(format = "%H:%M"),
+                Haplotype = col_character(),
+                x = col_double(),
+                y = col_double(),
+                EEZ = col_character(),
+                sex = col_character(),
+                plastron_to_tip = col_double(),
+                plastron_to_cloaca = col_double(),
+                cloaca_to_tip = col_double(),
+                #plastron_to_cloaca_to_tip = col_double(),
+                Sum_plastron_to_cloaca_to_tip = col_double(),
+                #dif_in_TL_measures = col_double(),
+                Difference_columnU_columnX = col_double(),
+                weight = col_double(),
+                body_depth = col_double(),
+                TP = col_double(),
+                dN = col_double(),
+                dC = col_double())
+
+#file.name <- "data/EPacLO_2021-07-02.csv"
+#file.name <- "data/EPac_LO_v2_Jan2022.csv"
+#file.name <- "data/EPac_LO_v3_Jan2022.csv"
+file.name <- "data/estimated_sex_LO_ETP_2022-02-28.csv"
+dat.2 <- read_csv(file = file.name,
+                  col_types = col_def)
+
+summary(dat.2)
+
+dat.2 %>% transmute(Date = Date_Collected,
+                    SCL_cm = SCL_SWFSC,
+                    CCL_cm = CCL_SWFSC,
+                    Latitude = y,
+                    Longitude = x,
+                    Sex = as.factor(sex),
+                    pMale = pMale,
+                    Location = "ETP") %>%
+  na.omit() -> dat.ETP
+
+dat.CNP %>% transmute(Date = Date1,
+                    SCL_cm = SCL_cm,
+                    CCL_cm = CCL_cm,
+                    Latitude = Latitude,
+                    Longitude = Longitude,
+                    Sex = Sex, 
+                    pMale = ifelse(Sex == "M", 1, 0),
+                    Location = "CNP") -> dat.CNP
+
+dat.all <- rbind(dat.ETP, dat.CNP) %>%
+  mutate(Est_Sex = ifelse(pMale > 0.5, "M", "F"))
+
+ggplot(dat.all) +
+  geom_histogram(aes(x = SCL_cm), binwidth = 5) + 
+  facet_grid(Location ~ Est_Sex)
+
+```
+
+```{r}
+ggplot(dat.all) +
+  geom_point(aes(x = SCL_cm, y = CCL_cm)) + 
+  facet_grid(Location ~ Est_Sex)
+
+# ggsave(filename = "figures/CCL_SCL_Sex_location.png",
+#        device = "png", dpi = 600)
+```
+
+Fit Gaussian mixture models to ETP and CNP datasets separately.
+
+Note that in mclust, BIC is defined as 2×ln(L(theta|x))+k×ln(n) not as −2×ln(L(theta|x))+k×ln(n). The latter is more often used. So, using mclust, we need to maximize BIC not to minimize. 
+
+see these sites for more explanations:
+https://github.com/data-edu/tidyLPA/issues/86
+https://stats.stackexchange.com/questions/237220/mclust-model-selection
+
+
+```{r}
+library(mclust)
+# compare one or two mixture models
+CNP.mclust.BIC <- mclustBIC(dat.CNP$SCL_cm)
+CNP.mclust <- densityMclust(dat.CNP$SCL_cm, x = CNP.mclust.BIC)
+
+CNP.dens <- data.frame(SCL = CNP.mclust$data,
+                       density = CNP.mclust$density) %>%
+  arrange(SCL)
+
+# Create histogram values:
+CNP.hist <-  hist(CNP.dens$SCL, 
+                  breaks = seq(from = 25, to = 70, by = 5), 
+                  plot = F)
+
+CNP.hist.df <- data.frame(breaks = CNP.hist$mids,
+                          density = CNP.hist$density)
+
+ggplot() + 
+  geom_col(data = CNP.hist.df, aes(x = breaks, y = density),
+           width = 5) +
+  geom_path(data = CNP.dens, aes(x = SCL, y = density),
+            size = 1) +
+  labs(x = "SCL (cm)", y = "Density", title = "CNP") +
+  theme(text = element_text(size = 12),
+        axis.text = element_text(size = 11))
+  #geom_path(aes(x = SCL, y = density)) +  
+  #geom_rug(aes(x = SCL)) 
+
+ggsave(filename = "figures/CNP_SCL.png", device = "png", dpi = 600)
+```
+
+
+```{r}
+ETP.mclust.BIC <- mclustBIC(dat.ETP$SCL_cm)
+ETP.mclust <- densityMclust(dat.ETP$SCL_cm, x = ETP.mclust.BIC)
+
+ETP.dens <- data.frame(SCL = ETP.mclust$data,
+                       density = ETP.mclust$density) %>%
+  arrange(SCL)
+
+# Create histogram values:
+ETP.hist <-  hist(ETP.dens$SCL, 
+                  breaks = seq(from = 15, to = 70, by = 5), 
+                  plot = F)
+
+
+ETP.hist.df <- data.frame(breaks = ETP.hist$mids,
+                          density = ETP.hist$density)
+
+ggplot() + 
+  geom_col(data = ETP.hist.df, aes(x = breaks, y = density),
+           width = 5) +
+  geom_path(data = ETP.dens, aes(x = SCL, y = density),
+            size = 1) +
+    labs(x = "SCL (cm)", y = "Density", title = "ETP") +
+  theme(text = element_text(size = 12),
+        axis.text = element_text(size = 11))
+
+
+ggsave(filename = "figures/ETP_SCL.png", device = "png", dpi = 600)
+```
+
+So, for the ETP dataset, a mixture of 4 distributions maximizes BIC, whereas for the CNP dataset 2 distributions maximizes it. 
+
+
+Also using sBIC package: (This is probably unnecessary)
+
+```{r}
+library(sBIC)
+
+gMix <- GaussianMixtures(maxNumComponents = 4, phi = 1, restarts = 100) 
+
+CNP.sBIC <- sBIC(dat.CNP$SCL_cm, gMix)
+ETP.sBIC <- sBIC(dat.ETP$SCL_cm, gMix)
+```
+
+The following is not needed... 
+
+Test the hypothesis that there is no difference between F/M and CNP/ETP, I use a randomization test to see how likely it is to see these minimum values if data were randomly placed in these groups. 
+
+
+<!-- ```{r warning=FALSE} -->
+<!-- n.rep <- 2500 -->
+<!-- min.rnd <- matrix(nrow = n.rep, ncol = 4) -->
+<!-- for (k in 1:n.rep){ -->
+<!--   dat.all$SCL_rnd <- sample(dat.all$SCL_cm)  -->
+<!--   dat.all %>% select(Location, Est_Sex, SCL_rnd) %>%  -->
+<!--     group_by(Location, Est_Sex) %>% -->
+<!--     summarize(min_SCL = min(SCL_rnd, na.rm = T)) -> tmp -->
+<!--   min.rnd[k,] <- t(as.vector(tmp[, "min_SCL"])) -->
+
+<!-- } -->
+
+
+<!-- df.random <- data.frame(Location = rep(c("CNP", "ETP"), each = n.rep * 2), -->
+<!--                         Sex = rep(rep(c("F", "M"), each = n.rep), 2), -->
+<!--                         min_SCL = as.vector(min.rnd)) -->
+
+<!-- # observed -->
+<!-- dat.all %>% select(Location, Est_Sex, SCL_rnd)  %>%  -->
+<!--   transmute(Location = Location, -->
+<!--             Sex = Est_Sex, -->
+<!--             SCL_rnd = SCL_rnd) %>% -->
+<!--   group_by(Location, Sex) %>% -->
+<!--     summarize(min_SCL = min(SCL_rnd, na.rm = T)) -> obs.SCL -->
+
+<!-- ggplot() +  -->
+<!--   geom_histogram(data = df.random, aes(x = min_SCL), binwidth = 2.5) + -->
+<!--   geom_vline(data = obs.SCL, aes(xintercept = min_SCL), color = "red") +  -->
+<!--   facet_grid(Location ~ Sex) -->
+
+<!-- ``` -->
+
+
+
