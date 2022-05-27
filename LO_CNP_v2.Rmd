@@ -250,6 +250,114 @@ CNP.sBIC <- sBIC(dat.CNP$SCL_cm, gMix)
 ETP.sBIC <- sBIC(dat.ETP$SCL_cm, gMix)
 ```
 
+Try a simple KS test:
+
+```{r}
+KS.out <- ks.test(dat.CNP$SCL_cm, dat.ETP$SCL_cm, alternative = "two.sided")
+
+KS.out
+```
+
+So... the distributions are different. Let's take a look at the eCDFs.
+
+```{r}
+SCLs <- data.frame(SCL = c(dat.CNP$SCL_cm, dat.ETP$SCL_cm),
+                   Location = c(dat.CNP$Location, dat.ETP$Location))
+
+ggplot(data = SCLs) +
+  stat_ecdf(aes(x = SCL, color = Location))
+
+
+```
+
+The main difference is in the small size group < 35 cm. 
+
+If we look at only those > 35 cm...
+
+```{r}
+SCLs %>% filter(SCL > 35) -> SCLs.big
+
+KS.out.big <- ks.test(dat.CNP %>% filter(SCL_cm>35) %>% pull(SCL_cm), 
+                      dat.ETP %>% filter(SCL_cm>35) %>% pull(SCL_cm), 
+                      alternative = "two.sided")
+
+KS.out.big
+```
+
+Even the big ones are different between the two locations. 
+
+
+```{r}
+
+ggplot(data = SCLs.big) +
+  stat_ecdf(aes(x = SCL, color = Location))
+
+
+```
+
+
+```{r}
+CNP.big.SCL <- dat.CNP %>% filter(SCL_cm > 35) %>% pull(SCL_cm)
+CNP.big.mclust.BIC <- mclustBIC(CNP.big.SCL)
+CNP.big.mclust <- densityMclust(CNP.big.SCL, x = CNP.big.mclust.BIC)
+
+CNP.big.dens <- data.frame(SCL = CNP.big.mclust$data,
+                       density = CNP.big.mclust$density) %>%
+  arrange(SCL)
+
+# Create histogram values:
+CNP.big.hist <-  hist(CNP.big.SCL, 
+                  breaks = seq(from = 35, to = 70, by = 5), 
+                  plot = F)
+
+CNP.big.hist.df <- data.frame(breaks = CNP.big.hist$mids,
+                          density = CNP.big.hist$density)
+
+ggplot() + 
+  geom_col(data = CNP.big.hist.df, aes(x = breaks, y = density),
+           width = 5) +
+  geom_path(data = CNP.big.dens, aes(x = SCL, y = density),
+            size = 1) +
+  labs(x = "SCL (cm)", y = "Density", title = "CNP") +
+  theme(text = element_text(size = 12),
+        axis.text = element_text(size = 11))
+  #geom_path(aes(x = SCL, y = density)) +  
+  #geom_rug(aes(x = SCL)) 
+```
+
+
+```{r}
+ETP.big.SCL <- dat.ETP %>% filter(SCL_cm > 35) %>% pull(SCL_cm)
+
+ETP.big.mclust.BIC <- mclustBIC(ETP.big.SCL)
+ETP.big.mclust <- densityMclust(ETP.big.SCL, x = ETP.big.mclust.BIC)
+
+ETP.big.dens <- data.frame(SCL = ETP.big.mclust$data,
+                       density = ETP.big.mclust$density) %>%
+  arrange(SCL)
+
+# Create histogram values:
+ETP.big.hist <-  hist(ETP.big.dens$SCL, 
+                  breaks = seq(from = 35, to = 70, by = 5), 
+                  plot = F)
+
+
+ETP.big.hist.df <- data.frame(breaks = ETP.big.hist$mids,
+                          density = ETP.big.hist$density)
+
+ggplot() + 
+  geom_col(data = ETP.big.hist.df, aes(x = breaks, y = density),
+           width = 5) +
+  geom_path(data = ETP.big.dens, aes(x = SCL, y = density),
+            size = 1) +
+    labs(x = "SCL (cm)", y = "Density", title = "ETP") +
+  theme(text = element_text(size = 12),
+        axis.text = element_text(size = 11))
+```
+
+
+
+
 The following is not needed... 
 
 Test the hypothesis that there is no difference between F/M and CNP/ETP, I use a randomization test to see how likely it is to see these minimum values if data were randomly placed in these groups. 
