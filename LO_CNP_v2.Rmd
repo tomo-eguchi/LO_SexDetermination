@@ -10,7 +10,7 @@ rm(list=ls())
 library(tidyverse)
 library(readr)
 library(lubridate)
-save.fig <- F
+save.fig <- T
 
 col_defs <- cols(Turtle_Number = col_integer(),
                  Trip = col_character(),
@@ -20,7 +20,7 @@ col_defs <- cols(Turtle_Number = col_integer(),
                  Longitude_DD = col_double(),
                  Sex = col_factor(levels = c("M", "F")),
                  Sex_1isF = col_integer(),
-                 Maturity_State = col_factor(levels = c("Immature", "Mature", "Unknown")),
+                 Maturity_State = col_factor(levels = c("Immature", "Mature")),
                  Species = col_skip(),
                  CCL_cm = col_double(),
                  SCL_cm = col_double(),
@@ -29,8 +29,10 @@ col_defs <- cols(Turtle_Number = col_integer(),
                  CaseAcc = col_character(),
                  Event_ID =col_character())
 
-dat.CNP <- read_csv(file = "data/CNP_Lo_Bycatch_v2_May2022.csv",
-                  col_types = col_defs) %>%
+#, "Unknown")
+#dat.CNP <- read_csv(file = "data/CNP_Lo_Bycatch_v2_May2022.csv",
+dat.CNP <- read_csv(file = "data/CNP_Lo_Bycatch_v2_Dec2022.csv",
+                    col_types = col_defs) %>%
   mutate(Date1 = ymd(DATE),
          Longitude = Longitude_DD,
          Latitude = Latitude_DD)
@@ -75,7 +77,7 @@ sex.by.year %>% group_by(Groups) %>%
 tmp
 ```
 
-Sex ratio didn't change that much over time (2005-2010 = 0.67 (n=6), 2011-2015 = 0.78 (n=40), 2016-2018 = 0.61 (n=75))
+Sex ratio didn't change that much over time (2005-2010 = `r signif(tmp[1,"F_Ratio"], 2)` (n=`r tmp[1,"N"]`), 2011-2015 = `r signif(tmp[2,"F_Ratio"], 2)` (n=`r tmp[2,"N"]`), 2016-`r max(sex.by.year$Year)` = `r signif(tmp[3,"F_Ratio"], 2)` (n=`r tmp[3,"N"]`))
 
 Comparing SCL between locations...
 
@@ -119,7 +121,7 @@ col_def <- cols(ID = col_integer(),
 #file.name <- "data/EPacLO_2021-07-02.csv"
 #file.name <- "data/EPac_LO_v2_Jan2022.csv"
 #file.name <- "data/EPac_LO_v3_Jan2022.csv"
-file.name <- "data/estimated_sex_LO_ETP_2022-02-28.csv"
+file.name <- "data/estimated_sex_LO_ETP_2022-06-14.csv"
 dat.2 <- read_csv(file = file.name,
                   col_types = col_def)
 
@@ -204,6 +206,9 @@ ggplot() +
 if (save.fig)
   ggsave(filename = "figures/CNP_SCL.png", device = "png", dpi = 600)
 ```
+
+Two means for CNP are `r signif(CNP.mclust$parameters$mean, 4)` and their variances (`r signif(CNP.mclust$parameters$variance$sigmasq, 4)`).
+
 
 
 ```{r}
