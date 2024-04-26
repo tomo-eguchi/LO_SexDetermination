@@ -642,8 +642,8 @@ if (!file.exists(paste0("data/estimated_sex_LO_ETP_",
                           Sys.Date(), ".csv"),
             quote = FALSE, row.names = FALSE)
 
-# Look at how pMale were similar between the two models.
-summary(lm(dat.2$pMale ~ dat.2.ptail$pMale))
+# Look at how pMale were similar between the two models. ?
+#summary(lm(dat.2$pMale ~ dat.1$pMale))
 
 ```
 

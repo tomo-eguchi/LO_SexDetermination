@@ -31,7 +31,8 @@ col_defs <- cols(Turtle_Number = col_integer(),
 
 #, "Unknown")
 #dat.CNP <- read_csv(file = "data/CNP_Lo_Bycatch_v2_May2022.csv",
-dat.CNP <- read_csv(file = "data/CNP_Lo_Bycatch_v2_Dec2022.csv",
+#dat.CNP <- read_csv(file = "data/CNP_Lo_Bycatch_v2_Dec2022.csv",
+dat.CNP <- read_csv(file = "data/CNP_Lo_Bycatch_v2_Jan2023.csv",
                     col_types = col_defs) %>%
   mutate(Date1 = ymd(DATE),
          Longitude = Longitude_DD,
