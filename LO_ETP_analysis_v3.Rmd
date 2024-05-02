@@ -44,9 +44,9 @@ compute.LOOIC <- function(loglik, data.vector, MCMC.params){
   return(out.list)  
 }
 
-MCMC.params <- list(n.samples = 70000,
+MCMC.params <- list(n.samples = 150000,
                     n.burnin = 50000,
-                    n.thin = 5,
+                    n.thin = 10,
                     n.chains = 5)
 
 ```
@@ -585,6 +585,7 @@ for (k in 1:length(models)){
     jags.data <- jags.data.list[[k]]
     MCMC.params$parameters <- parameters
     MCMC.params$model.file <- paste0("models/Model_", models[[k]], ".txt")
+    start.time <- Sys.time()
     jm.sex <- jags(data = jags.data,
                    #inits = inits,
                    parameters.to.save= MCMC.params$parameters,
@@ -595,10 +596,13 @@ for (k in 1:length(models)){
                    n.iter = MCMC.params$n.samples,
                    DIC = T, 
                    parallel=T)
-    
+    elapsed.time <- Sys.time() - start.time
     jm.out <- list(data = jags.data,
                    params = MCMC.params,
-                   jm.out = jm.sex)
+                   jm = jm.sex,
+                   Run.Date = Sys.Date(),
+                   comp.time = elapsed.time,
+                   System = Sys.getenv())
     
     saveRDS(jm.out, file = paste0("RData/LO_", model.names[[k]],
                                   "_May2024.rds"))
@@ -608,10 +612,10 @@ for (k in 1:length(models)){
     
   }
   
-  DIC[k] <- jm.out$jm.out$DIC
+  DIC[k] <- jm.out$jm$DIC
   if (!file.exists(paste0("RData/LO_", model.names[[k]],
                           "_loo_out_May2024.rds"))){
-    loo.out <- compute.LOOIC(loglik = jm.out$jm.out$sims.list$loglik,
+    loo.out <- compute.LOOIC(loglik = jm.out$jm$sims.list$loglik,
                              data.vector = as.vector(jm.out$data$H1),
                              MCMC.params = jm.out$params)
     
@@ -705,8 +709,8 @@ Although the sex_ptail_SCL and sex_ptail_SCL_temp models are the first and secon
 ```{r}
 
 dat.2.3$Model <- second.model.name
-dat.2.3$pMale <- second.model$jm.out$mean$Sex1
-dat.2.3$log_muH <- second.model$jm.out$q50$mu_H1
+dat.2.3$pMale <- second.model$jm$mean$Sex1
+dat.2.3$log_muH <- second.model$jm$q50$mu_H1
 
 
 # combine the results with dat.0
@@ -776,14 +780,14 @@ dat.2.4[high_pareto_k$rowID,
 
 ggplot(data = dat.2.4) +
   geom_point(aes(x = SCL_SWFSC, y = tail_length, color = sex)) +
-  geom_point(data = dat.2.4 %>% filter(LabID == 65708),
+  geom_point(data = dat.2.4 %>% filter(LabID == 65708 | LabID == 65946),
              aes(x = SCL_SWFSC, y = tail_length),
              shape = 1, size = 5, color = "black")
 
 
 ```
 
-Not sure why this one came back with high Pareto K values...
+Not sure why these ones came back with high Pareto K values...
 
 
 Sex ratio of the ETP data
