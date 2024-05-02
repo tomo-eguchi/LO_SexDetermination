@@ -28,6 +28,11 @@ model {
     Sex1[i] ~ dbern(q)
   }
 
+  # Some tail measurements are missing
+  for (i in 1:N1){
+    tail[i] ~ dnorm(15, 0.01)I(0,)
+  }
+
   q ~ dbeta(1,1)
 
   # Setting SD of observations to be somewhere between 0 to 0,4, which equates

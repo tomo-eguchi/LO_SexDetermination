@@ -10,7 +10,7 @@ rm(list=ls())
 library(tidyverse)
 library(readr)
 library(lubridate)
-save.fig <- T
+save.fig <- F
 
 col_defs <- cols(Turtle_Number = col_integer(),
                  Trip = col_character(),
