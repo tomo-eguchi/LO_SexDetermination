@@ -704,6 +704,18 @@ plot(loo.out.third$loo.out)
 
 ```
 
+Compare the model 1 and model 2 pMale
+```{r}
+p.male.df <- data.frame(model.1 = best.model$jm$mean$Sex1,
+                        model.2 = second.model$jm$mean$Sex1)
+
+model1.vs.model2 <- lm(model.2 ~ model.1, data = p.male.df)
+
+summary(model1.vs.model2)
+```
+
+
+
 Although the sex_ptail_SCL and sex_ptail_SCL_temp models are the first and second best. The second model (sex_ptail_SCL_temp) has fewer (1) bad Pareto k diagnostic values (>0.5) than the best model (sex_ptail_SCL, 3). So, I use the second best model. Look at the results:
 
 ```{r}
