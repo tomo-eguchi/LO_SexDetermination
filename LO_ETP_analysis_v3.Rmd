@@ -12,6 +12,7 @@ library(tidyverse)
 library(lubridate)
 library(readr)
 library(loo)
+library(bayesplot)
 
 save.fig <- F
 
@@ -727,10 +728,11 @@ dat.2.3$log_muH <- second.model$jm$q50$mu_H1
 
 # combine the results with dat.0
 dat.2.3 %>% select(ID, tail_1, tail_2,
-                 tail_length,
-                 log_Testo1_mean0, 
-                 log_Testo2_mean0, 
-                 pMale, log_muH) %>%
+                   tail_length,
+                   log_Testo1_mean0, 
+                   log_Testo2_mean0, 
+                   pMale, log_muH,
+                   Model) %>%
   mutate(LabID = ID) %>%  
   select(-ID) %>% 
   right_join(dat.0, by = "LabID") -> dat.2.4
@@ -940,6 +942,44 @@ ggplot() +
             aes(x = Haplotype, y = 1.2, label = n)) +
   geom_text(data = dat.haplo,
             aes(x = Haplotype, y = 1.1, label = signif(mean.pMale, 1)))
+
+```
+
+Comparing results from the previous run
+```{r}
+
+estim_22 <- read.csv("data/estimated_sex_LO_ETP_2022-06-14.csv")
+
+estim_22 %>% select(LabID, pMale) %>%
+  transmute(ID = LabID,
+            pMale_22 = pMale) -> sex_22
+
+dat.2.4 %>% select(LabID, pMale) %>%
+  transmute(ID = LabID,
+            pMale_24 = pMale) -> sex_24
+
+sex_24 %>% left_join(sex_22, by = "ID") %>%
+  mutate(dif.pMale = pMale_22 - pMale_24) -> sex_22_24
+
+sex_22_24 %>% filter(abs(dif.pMale) > 0.3)
+
+which(dat.2.4$LabID == c(65855, 65934))
+
+dat.2.4[which(dat.2.4$LabID == c(65855, 65934)),]
+estim_22[which(estim_22$LabID == c(65855, 65934)),]
+
+# get the jags output
+jm <- readRDS("RData/LO_sex_ptail_SCL_temp_May2024.rds")
+
+jm$jm$mean$Sex1[which(dat.2.4$LabID == c(65855, 65934))]
+
+jm$jm$q2.5$Sex1[which(dat.2.4$LabID == c(65855, 65934))]
+
+jm$jm$q97.5$Sex1[which(dat.2.4$LabID == c(65855, 65934))]
+
+jm$jm$q50$Sex1[which(dat.2.4$LabID == c(65855, 65934))]
+
+mcmc_dens(jm$jm$samples, c("Sex1[215]", "Sex1[292]"))
 
 ```
 
