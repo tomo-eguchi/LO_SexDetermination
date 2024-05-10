@@ -633,16 +633,26 @@ for (k in 1:length(models)){
 ```
 
 
+Find the number of data points that had Pareto K  > 0.7 for all models and compare results:
 
-
-Compare results:
 ```{r}
+max.pareto <- n.bad.pareto <- p.bad.pareto <- vector(mode = "numeric", length = length(model.names))
+for (k in 1:length(model.names)){
+  loo.out <- readRDS(paste0("RData/LO_", model.names[k], "_loo_out_May2024.rds"))
+  max.pareto[k] <- max(loo.out$loo.out$diagnostics$pareto_k)
+  n.bad.pareto[k] <- sum(loo.out$loo.out$diagnostics$pareto_k > 0.7)
+  p.bad.pareto[k] <- sum(loo.out$loo.out$diagnostics$pareto_k > 0.7)/length(loo.out$loo.out$diagnostics$pareto_k)
+}
 
 LOOIC_DIC <- data.frame(Model = model.names,
-             dDIC = DIC - min(DIC),
-             dLOOIC = LOOIC - min(LOOIC)) %>% arrange(by = dLOOIC)
+             dDIC = signif(DIC - min(DIC), 5),
+             dLOOIC = signif(LOOIC - min(LOOIC), 3),
+             max.pareto = signif(max.pareto, 2),
+             bad.pareto = n.bad.pareto,
+             percent.bad.pareto = signif(p.bad.pareto*100,2)) %>% arrange(by = dLOOIC)
 LOOIC_DIC
 ```
+
 
 Write out the LOOIC table
 ```{r}
