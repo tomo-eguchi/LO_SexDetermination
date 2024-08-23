@@ -10,6 +10,7 @@ rm(list=ls())
 library(tidyverse)
 library(readr)
 library(lubridate)
+library(ggplot2)
 save.fig <- F
 
 col_defs <- cols(Turtle_Number = col_integer(),
@@ -243,6 +244,74 @@ if (save.fig)
 ```
 
 So, for the ETP dataset, a mixture of 4 distributions maximizes BIC, whereas for the CNP dataset 2 distributions maximizes it. 
+
+Try it with three means:
+```{r}
+# ETP
+ETP.mclust.3.BIC <- mclustBIC(dat.ETP$SCL_cm,
+                              G = 1:3)
+ETP.mclust.3 <- densityMclust(dat.ETP$SCL_cm, 
+                            G = 1:3, 
+                            x = ETP.mclust.3.BIC)
+
+ETP.dens.3 <- data.frame(SCL = ETP.mclust.3$data,
+                       density = ETP.mclust.3$density) %>%
+  arrange(SCL)
+
+# Create histogram values:
+ETP.hist.3 <-  hist(ETP.dens.3$SCL, 
+                  breaks = seq(from = 15, to = 70, by = 5), 
+                  plot = F)
+
+
+ETP.hist.3.df <- data.frame(breaks = ETP.hist.3$mids,
+                          density = ETP.hist.3$density)
+
+ggplot() + 
+  geom_col(data = ETP.hist.3.df, aes(x = breaks, y = density),
+           width = 5) +
+  geom_path(data = ETP.dens.3, aes(x = SCL, y = density),
+            size = 1) +
+    labs(x = "SCL (cm)", y = "Density", title = "ETP") +
+  theme(text = element_text(size = 12),
+        axis.text = element_text(size = 11))
+
+if (save.fig)
+  ggsave(filename = "figures/ETP_SCL_mclust3.png", device = "png", dpi = 600)
+
+# CNP
+CNP.mclust.3.BIC <- mclustBIC(dat.ETP$SCL_cm,
+                              G = 1:3)
+CNP.mclust.3 <- densityMclust(dat.CNP$SCL_cm, 
+                            G = 1:3, 
+                            x = CNP.mclust.3.BIC)
+
+CNP.dens.3 <- data.frame(SCL = CNP.mclust.3$data,
+                       density = CNP.mclust.3$density) %>%
+  arrange(SCL)
+
+# Create histogram values:
+CNP.hist.3 <-  hist(CNP.dens.3$SCL, 
+                  breaks = seq(from = 15, to = 70, by = 5), 
+                  plot = F)
+
+CNP.hist.3.df <- data.frame(breaks = CNP.hist.3$mids,
+                          density = CNP.hist.3$density)
+
+ggplot() + 
+  geom_col(data = CNP.hist.3.df, aes(x = breaks, y = density),
+           width = 5) +
+  geom_path(data = CNP.dens.3, aes(x = SCL, y = density),
+            size = 1) +
+    labs(x = "SCL (cm)", y = "Density", title = "CNP") +
+  theme(text = element_text(size = 12),
+        axis.text = element_text(size = 11))
+
+if (save.fig)
+  ggsave(filename = "figures/CNP_SCL_mclust3.png", device = "png", dpi = 600)
+
+```
+
 
 
 Also using sBIC package: (This is probably unnecessary)
