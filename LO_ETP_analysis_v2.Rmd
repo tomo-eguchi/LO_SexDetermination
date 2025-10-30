@@ -17,34 +17,74 @@ library(loo)
 
 save.fig <- F
 
-compute.LOOIC <- function(loglik, data.vector, MCMC.params){
+compute.LOOIC <- function(loglik.array, MCMC.params){
   n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+  n.samples <- dim(loglik.array)[1]
   
-  loglik.vec <- as.vector(loglik)
+  # Create an empty list to hold the log likelihood values
+  #ll.list <- vector("list", length = n.samples)
   
-  # each column corresponds to a data point and rows are MCMC samples
-  loglik.mat <- matrix(loglik.vec, nrow = n.per.chain * MCMC.params$n.chains)
+  loglik.list <- lapply(1:n.samples, function(s) {
+    # Extract the slice for the current sample 's'
+    slice <- loglik.array[s, , , ]
+    # Return the non-NA values from that slice
+    slice[!is.na(slice)]
+  })
   
-  # take out the columns that correspond to missing data points
-  loglik.mat <- loglik.mat[, !is.na(data.vector)]
-  # loglik.mat <- matrix(loglik.vec[!is.na(data.vector)], 
-  #                      nrow = MCMC.params$n.chains * n.per.chain)
+  #loglik.list <- apply(loglik.array, 1, function(slice) slice[!is.na(slice)])
+  
+  # loop through each MCMC sample and collect log likelihood values
+  # for (s in 1:n.samples){
+  #   ll.cube <- loglik.array[s,,,]
+  #   ll.list[[s]] <- ll.cube[!is.na(loglik.array[s,,,])]
+  # }
+  
+  loglik.mat <- do.call(rbind, loglik.list)
   
   Reff <- relative_eff(exp(loglik.mat),
                        chain_id = rep(1:MCMC.params$n.chains,
                                       each = n.per.chain),
-                       cores = 4)
+                       cores = MCMC.params$n.chains)
   
-  #
-  loo.out <- loo(loglik.mat, 
-                 r_eff = Reff, 
-                 cores = 4, k_threshold = 0.7)
+  loo.out <- rstanarm::loo(loglik.mat, 
+                           r_eff = Reff, 
+                           cores = MCMC.params$n.chains, 
+                           k_threshold = 0.7)
   
   out.list <- list(Reff = Reff,
                    loo.out = loo.out)
   
   return(out.list)  
 }
+# 
+# compute.LOOIC <- function(loglik, data.vector, MCMC.params){
+#   n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+#   
+#   loglik.vec <- as.vector(loglik)
+#   
+#   # each column corresponds to a data point and rows are MCMC samples
+#   loglik.mat <- matrix(loglik.vec, nrow = n.per.chain * MCMC.params$n.chains)
+#   
+#   # take out the columns that correspond to missing data points
+#   loglik.mat <- loglik.mat[, !is.na(data.vector)]
+#   # loglik.mat <- matrix(loglik.vec[!is.na(data.vector)], 
+#   #                      nrow = MCMC.params$n.chains * n.per.chain)
+#   
+#   Reff <- relative_eff(exp(loglik.mat),
+#                        chain_id = rep(1:MCMC.params$n.chains,
+#                                       each = n.per.chain),
+#                        cores = 4)
+#   
+#   #
+#   loo.out <- loo(loglik.mat, 
+#                  r_eff = Reff, 
+#                  cores = 4, k_threshold = 0.7)
+#   
+#   out.list <- list(Reff = Reff,
+#                    loo.out = loo.out)
+#   
+#   return(out.list)  
+# }
 
 MCMC.params <- list(n.samples = 70000,
                     n.burnin = 50000,
