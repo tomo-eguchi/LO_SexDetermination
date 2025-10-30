@@ -5,6 +5,9 @@ output: html_notebook
 
 Analysis of hormone data for olive ridleys in ETP. Feb 2022 version.
 
+Testing how to use GitHub as a contributor rather than the primary. More testing.
+
+
 ```{r}
 library(jagsUI)
 library(tidyverse)
